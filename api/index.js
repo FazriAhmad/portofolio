@@ -66,6 +66,39 @@ function init() {
           );
         }
       }
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS cv_file (
+          lang TEXT PRIMARY KEY CHECK (lang IN ('en', 'id')),
+          filename TEXT,
+          data TEXT
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS site_content (
+          id INT PRIMARY KEY DEFAULT 1,
+          hero_title TEXT, hero_subtitle TEXT,
+          about_en TEXT, about_id TEXT,
+          skills TEXT[] DEFAULT '{}',
+          whatsapp TEXT, email TEXT, linkedin TEXT,
+          photo TEXT
+        )
+      `);
+      await pool.query(
+        `INSERT INTO site_content (id, hero_title, hero_subtitle, about_en, about_id, skills, whatsapp, email, linkedin, photo)
+         VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          'Fazri Ahmad Mustaqim',
+          'Fullstack Developer & IoT Enthusiast',
+          `Fullstack Developer & IoT Enthusiast. With a background in Computer Engineering, I transitioned into web development and now build full-stack applications using React, Next.js, and Laravel — combining clean, functional interfaces with reliable backend systems. I'm also passionate about IoT, exploring how hardware and software intersect to solve real-world problems, and I keep exploring modern frontend tooling and API-driven architectures. "Code with heart, build for future."`,
+          'Fullstack Developer & IoT Enthusiast. Berbekal ilmu Teknik Komputer, saya membangun aplikasi full-stack menggunakan React, Next.js, dan Laravel — memadukan antarmuka yang bersih dan fungsional dengan sistem backend yang andal. Saya juga tertarik pada IoT, mengeksplorasi perpaduan hardware dan software untuk menyelesaikan masalah nyata, serta terus mempelajari tooling frontend modern dan arsitektur berbasis API. "Code with heart, build for future."',
+          ['Laravel', 'React', 'IoT', 'PHP', 'MySQL', 'ESP32', 'JavaScript', 'GIS', 'Docker'],
+          '6281284020220',
+          'fazriachmad898@gmail.com',
+          'https://linkedin.com/in/fazriahmad',
+          '/images/profile.jpg'
+        ]
+      );
     })();
   }
   return ready;
@@ -136,6 +169,82 @@ app.post('/api/projects/:id/view', async (req, res) => {
 app.delete('/api/projects/:id', async (req, res) => {
   await pool.query('DELETE FROM projects WHERE id = $1', [req.params.id]);
   res.status(204).end();
+});
+
+// Metadata only (no base64 payload) — cheap to load on every page visit.
+app.get('/api/cv', async (req, res) => {
+  const { rows } = await pool.query('SELECT lang, filename FROM cv_file');
+  const byLang = { en: { filename: null }, id: { filename: null } };
+  for (const r of rows) byLang[r.lang] = { filename: r.filename };
+  res.json(byLang);
+});
+
+// Full file (with base64 data) — fetched on demand when the visitor actually clicks download.
+app.get('/api/cv/:lang', async (req, res) => {
+  if (!['en', 'id'].includes(req.params.lang)) return res.status(400).json({ error: 'invalid lang' });
+  const { rows } = await pool.query('SELECT filename, data FROM cv_file WHERE lang = $1', [req.params.lang]);
+  res.json(rows[0] || { filename: null, data: null });
+});
+
+app.put('/api/cv/:lang', async (req, res) => {
+  if (!['en', 'id'].includes(req.params.lang)) return res.status(400).json({ error: 'invalid lang' });
+  const { filename, data } = req.body;
+  if (!filename || !data) return res.status(400).json({ error: 'filename and data required' });
+  await pool.query(
+    `INSERT INTO cv_file (lang, filename, data) VALUES ($1, $2, $3)
+     ON CONFLICT (lang) DO UPDATE SET filename = $2, data = $3`,
+    [req.params.lang, filename, data]
+  );
+  res.json({ filename, data });
+});
+
+app.delete('/api/cv/:lang', async (req, res) => {
+  if (!['en', 'id'].includes(req.params.lang)) return res.status(400).json({ error: 'invalid lang' });
+  await pool.query('DELETE FROM cv_file WHERE lang = $1', [req.params.lang]);
+  res.status(204).end();
+});
+
+const toContent = (row) => ({
+  heroTitle: row.hero_title,
+  heroSubtitle: row.hero_subtitle,
+  about: { en: row.about_en, id: row.about_id },
+  skills: row.skills,
+  whatsapp: row.whatsapp,
+  email: row.email,
+  linkedin: row.linkedin,
+  photo: row.photo
+});
+
+app.get('/api/content', async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM site_content WHERE id = 1');
+  res.json(toContent(rows[0]));
+});
+
+const CONTENT_LANG_FIELDS = { about: 'about' };
+const CONTENT_PLAIN_COLUMNS = {
+  heroTitle: 'hero_title', heroSubtitle: 'hero_subtitle',
+  skills: 'skills', whatsapp: 'whatsapp', email: 'email', linkedin: 'linkedin', photo: 'photo'
+};
+
+app.patch('/api/content', async (req, res) => {
+  const { field, lang, value } = req.body;
+  let column, val = value;
+
+  if (CONTENT_LANG_FIELDS[field]) {
+    if (!['en', 'id'].includes(lang)) return res.status(400).json({ error: 'invalid lang' });
+    column = `${CONTENT_LANG_FIELDS[field]}_${lang}`;
+  } else if (CONTENT_PLAIN_COLUMNS[field]) {
+    column = CONTENT_PLAIN_COLUMNS[field];
+    if (field === 'skills') val = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim()).filter(Boolean);
+  } else {
+    return res.status(400).json({ error: 'invalid field' });
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE site_content SET ${column} = $1 WHERE id = 1 RETURNING *`,
+    [val]
+  );
+  res.json(toContent(rows[0]));
 });
 
 export default app;

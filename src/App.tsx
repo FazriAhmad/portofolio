@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Moon, Sun, Globe, Download, Eye,
+  Moon, Sun, Globe, Download,
   Menu, X, ExternalLink, Mail, Phone
 } from 'lucide-react';
 
@@ -17,6 +17,17 @@ interface Project {
   tags: string[];
   category: string;
   views: number;
+}
+
+interface SiteContent {
+  heroTitle: string;
+  heroSubtitle: string;
+  about: { en: string; id: string };
+  skills: string[];
+  whatsapp: string;
+  email: string;
+  linkedin: string;
+  photo: string;
 }
 
 interface Analytics {
@@ -34,9 +45,9 @@ const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://
 const translations = {
   en: {
     nav: { home: "Home", about: "About", projects: "Projects", skills: "Skills", contact: "Contact" },
-    hero: { title: "Fazri Ahmad Mustaqim", subtitle: "Fullstack Developer & IoT Enthusiast", cta: "View Projects", cv: "Download CV" },
-    about: { title: "About Me", text: "Fullstack Developer & IoT Enthusiast. With a background in Computer Engineering, I transitioned into web development and now build full-stack applications using React, Next.js, and Laravel — combining clean, functional interfaces with reliable backend systems. I'm also passionate about IoT, exploring how hardware and software intersect to solve real-world problems, and I keep exploring modern frontend tooling and API-driven architectures. \"Code with heart, build for future.\"" },
-    projects: { title: "Featured Projects", detail: "View Details", views: "views", mostViewed: "Most Viewed" },
+    hero: { cta: "View Projects", cv: "Download CV" },
+    about: { title: "About Me" },
+    projects: { title: "Featured Projects", detail: "View Details" },
     skills: { title: "Skills & Expertise" },
     contact: { title: "Let's Connect" },
     cv: { downloads: "CV Downloads" },
@@ -45,9 +56,9 @@ const translations = {
   },
   id: {
     nav: { home: "Beranda", about: "Tentang", projects: "Proyek", skills: "Keahlian", contact: "Kontak" },
-    hero: { title: "Fazri Ahmad Mustaqim", subtitle: "Fullstack Developer & IoT Enthusiast", cta: "Lihat Proyek", cv: "Unduh CV" },
-    about: { title: "Tentang Saya", text: "Fullstack Developer & IoT Enthusiast. Berbekal ilmu Teknik Komputer, saya membangun aplikasi full-stack menggunakan React, Next.js, dan Laravel — memadukan antarmuka yang bersih dan fungsional dengan sistem backend yang andal. Saya juga tertarik pada IoT, mengeksplorasi perpaduan hardware dan software untuk menyelesaikan masalah nyata, serta terus mempelajari tooling frontend modern dan arsitektur berbasis API. \"Code with heart, build for future.\"" },
-    projects: { title: "Proyek Unggulan", detail: "Lihat Detail", views: "tayangan", mostViewed: "Paling Dilihat" },
+    hero: { cta: "Lihat Proyek", cv: "Unduh CV" },
+    about: { title: "Tentang Saya" },
+    projects: { title: "Proyek Unggulan", detail: "Lihat Detail" },
     skills: { title: "Keahlian & Keterampilan" },
     contact: { title: "Mari Terhubung" },
     cv: { downloads: "Unduhan CV" },
@@ -56,7 +67,16 @@ const translations = {
   }
 };
 
-const skills = ["Laravel", "React", "IoT", "PHP", "MySQL", "ESP32", "JavaScript", "GIS", "Docker"];
+const defaultContent: SiteContent = {
+  heroTitle: 'Fazri Ahmad Mustaqim',
+  heroSubtitle: 'Fullstack Developer & IoT Enthusiast',
+  about: { en: '', id: '' },
+  skills: ["Laravel", "React", "IoT", "PHP", "MySQL", "ESP32", "JavaScript", "GIS", "Docker"],
+  whatsapp: '6281284020220',
+  email: 'fazriachmad898@gmail.com',
+  linkedin: 'https://linkedin.com/in/fazriahmad',
+  photo: '/images/profile.jpg'
+};
 
 // ponytail: password client-side & hardcode, cukup buat sembunyiin dari pengunjung biasa,
 // BUKAN keamanan sungguhan (siapa pun bisa baca dari source JS). Upgrade ke backend auth kalau serius.
@@ -90,6 +110,15 @@ function fileToCompressedDataUrl(file: File, maxDim = 1200, quality = 0.82): Pro
   });
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+}
+
 // Main App Component
 function Portfolio() {
   const [lang, setLang] = useState<'en' | 'id'>('en');
@@ -104,6 +133,10 @@ function Portfolio() {
   });
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeSection, setActiveSection] = useState('home');
+  const [cv, setCv] = useState<{ en: { filename: string | null }; id: { filename: string | null } }>({
+    en: { filename: null }, id: { filename: null }
+  });
+  const [content, setContent] = useState<SiteContent>(defaultContent);
 
   const t = translations[lang];
 
@@ -111,6 +144,43 @@ function Portfolio() {
   useEffect(() => {
     fetch(`${API_BASE}/api/projects`).then(r => r.json()).then(setProjects).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/cv`).then(r => r.json()).then(setCv).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/content`).then(r => r.json()).then(setContent).catch(console.error);
+  }, []);
+
+  // Site content (hero, about, skills, contact, photo) — persisted in Postgres via the API
+  const updateContent = (field: 'heroTitle' | 'heroSubtitle' | 'whatsapp' | 'email' | 'linkedin' | 'photo', value: string) => {
+    setContent(prev => ({ ...prev, [field]: value }));
+    fetch(`${API_BASE}/api/content`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field, value })
+    }).catch(console.error);
+  };
+
+  const updateAbout = (aboutLang: 'en' | 'id', value: string) => {
+    setContent(prev => ({ ...prev, about: { ...prev.about, [aboutLang]: value } }));
+    fetch(`${API_BASE}/api/content`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field: 'about', lang: aboutLang, value })
+    }).catch(console.error);
+  };
+
+  const updateSkills = (rawValue: string) => {
+    const value = rawValue.split(',').map(s => s.trim()).filter(Boolean);
+    setContent(prev => ({ ...prev, skills: value }));
+    fetch(`${API_BASE}/api/content`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field: 'skills', value })
+    }).catch(console.error);
+  };
 
   // Load from localStorage
   useEffect(() => {
@@ -174,22 +244,25 @@ function Portfolio() {
     saveAnalytics(newAnalytics);
   };
 
-  // Track CV Download
+  // Track CV Download — downloads the real file the admin uploaded for the current language.
+  // The base64 payload isn't kept in state (only the filename is), so fetch it lazily on click.
   const handleDownloadCV = () => {
-    const newAnalytics = { ...analytics, cvDownloads: analytics.cvDownloads + 1 };
-    saveAnalytics(newAnalytics);
-    
-    // Simulate CV download
-    const link = document.createElement('a');
-    link.href = '#';
-    link.download = 'Fazri_Ahmad_Mustaqim_CV.pdf';
-    const blob = new Blob(['CV Content - Fazri Ahmad Mustaqim\nFullstack Developer & IoT Enthusiast'], { type: 'text/plain' });
-    link.href = URL.createObjectURL(blob);
-    link.click();
+    if (!cv[lang].filename) {
+      window.alert(lang === 'id' ? 'CV bahasa Indonesia belum diunggah.' : 'English CV has not been uploaded yet.');
+      return;
+    }
+    fetch(`${API_BASE}/api/cv/${lang}`)
+      .then(r => r.json())
+      .then((full: { filename: string; data: string }) => {
+        const newAnalytics = { ...analytics, cvDownloads: analytics.cvDownloads + 1 };
+        saveAnalytics(newAnalytics);
+        const link = document.createElement('a');
+        link.href = full.data;
+        link.download = full.filename;
+        link.click();
+      })
+      .catch(console.error);
   };
-
-  // Most viewed project
-  const mostViewedProject = [...projects].sort((a, b) => b.views - a.views)[0];
 
   // Navigation
   const navItems = ['home', 'about', 'projects', 'skills', 'contact'] as const;
@@ -246,6 +319,29 @@ function Portfolio() {
     }).catch(console.error);
   };
 
+  const uploadCv = async (cvLang: 'en' | 'id', file: File) => {
+    if (file.type !== 'application/pdf') {
+      window.alert('File harus PDF.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      window.alert('Ukuran PDF maksimal 3MB.');
+      return;
+    }
+    const data = await fileToDataUrl(file);
+    await fetch(`${API_BASE}/api/cv/${cvLang}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, data })
+    });
+    setCv(prev => ({ ...prev, [cvLang]: { filename: file.name } }));
+  };
+
+  const deleteCv = async (cvLang: 'en' | 'id') => {
+    await fetch(`${API_BASE}/api/cv/${cvLang}`, { method: 'DELETE' });
+    setCv(prev => ({ ...prev, [cvLang]: { filename: null } }));
+  };
+
   const deleteProject = (id: number) => {
     setProjects(prev => prev.filter(p => p.id !== id));
     fetch(`${API_BASE}/api/projects/${id}`, { method: 'DELETE' }).catch(console.error);
@@ -284,7 +380,7 @@ function Portfolio() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-20">
           <div className="flex items-center gap-3">
-            <div className="font-semibold text-2xl tracking-tighter">Fazri Ahmad Mustaqim</div>
+            <div className="font-semibold text-2xl tracking-tighter">{content.heroTitle}</div>
           </div>
 
           {/* Desktop Nav */}
@@ -326,8 +422,8 @@ function Portfolio() {
       <section id="home" className="pt-20 min-h-[100dvh] flex items-center relative bg-zinc-950 text-white overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 pt-12 pb-24 relative z-10 w-full grid md:grid-cols-[1fr_auto] items-center gap-12">
           <div className="max-w-3xl">
-            <h1 className="text-6xl md:text-8xl font-semibold tracking-[-4.4px] leading-none mb-6">{t.hero.title}</h1>
-            <p className="text-3xl tracking-tight text-zinc-400 mb-12">{t.hero.subtitle}</p>
+            <h1 className="text-6xl md:text-8xl font-semibold tracking-[-4.4px] leading-none mb-6">{content.heroTitle}</h1>
+            <p className="text-3xl tracking-tight text-zinc-400 mb-12">{content.heroSubtitle}</p>
 
             <div className="flex flex-wrap gap-4">
               <button onClick={() => scrollToSection('projects')} className="px-10 py-4 bg-white text-black rounded-full font-medium hover:bg-zinc-200 transition flex items-center gap-3 text-lg">
@@ -338,7 +434,7 @@ function Portfolio() {
               </button>
             </div>
           </div>
-          <img src="/images/profile.jpg" alt={t.hero.title} className="w-56 h-56 md:w-80 md:h-80 rounded-full object-cover object-top border-4 border-white/20 justify-self-center md:justify-self-end" />
+          <img src={content.photo} alt={content.heroTitle} className="w-56 h-56 md:w-80 md:h-80 rounded-full object-cover object-top border-4 border-white/20 justify-self-center md:justify-self-end" />
         </div>
         <div className="absolute bottom-12 right-8 text-xs text-white/50 tracking-[4px] hidden lg:block">SCROLL TO EXPLORE ↓</div>
       </section>
@@ -350,18 +446,15 @@ function Portfolio() {
             <h2 className="text-6xl font-semibold tracking-tighter mb-8">{t.about.title}</h2>
           </div>
           <div className="text-xl text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            {t.about.text}
+            {content.about[lang]}
           </div>
         </div>
       </section>
 
       {/* PROJECTS */}
       <section id="projects" className="max-w-7xl mx-auto px-6 py-24">
-        <div className="flex justify-between items-end mb-12">
-          <div>
-            <h2 className="text-6xl tracking-[-2.4px] font-semibold">{t.projects.title}</h2>
-          </div>
-          {mostViewedProject && <div className="text-right text-sm hidden md:block text-teal-600">★ {t.projects.mostViewed}: {mostViewedProject.title[lang]}</div>}
+        <div className="mb-12">
+          <h2 className="text-6xl tracking-[-2.4px] font-semibold">{t.projects.title}</h2>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -374,9 +467,10 @@ function Portfolio() {
                 <div className="uppercase text-xs tracking-[3px] opacity-75 mb-2">{project.category}</div>
                 <h3 className="text-4xl font-semibold tracking-tight mb-3">{project.title[lang]}</h3>
                 <p className="text-lg text-white/80 pr-8">{project.description[lang]}</p>
-                <div className="flex items-center gap-5 mt-7 text-sm">
-                  <span className="flex items-center gap-1.5"><Eye size={16} /> {project.views} {t.projects.views}</span>
-                  <span className="px-3 py-px bg-white/20 rounded">{project.tags[0]}</span>
+                <div className="flex flex-wrap items-center gap-2 mt-7 text-sm">
+                  {project.tags.map((tag, i) => (
+                    <span key={i} className="px-3 py-px bg-white/20 rounded">{tag}</span>
+                  ))}
                 </div>
               </div>
             </motion.div>
@@ -389,7 +483,7 @@ function Portfolio() {
         <div className="max-w-5xl mx-auto px-6">
           <h2 className="text-6xl tracking-[-2.6px] font-semibold mb-16">{t.skills.title}</h2>
           <div className="flex flex-wrap gap-3">
-            {skills.map((skill, i) => (
+            {content.skills.map((skill, i) => (
               <div key={i} className="px-8 py-4 rounded-2xl border border-white/20 text-lg hover:border-teal-500 transition-colors">{skill}</div>
             ))}
           </div>
@@ -400,13 +494,13 @@ function Portfolio() {
       <section id="contact" className="max-w-3xl mx-auto px-6 py-24">
         <h2 className="text-6xl tracking-tighter font-semibold mb-9">{t.contact.title}</h2>
         <div className="flex flex-col sm:flex-row gap-4">
-          <a href="https://wa.me/6281284020220" target="_blank" rel="noopener noreferrer" className="flex-1 bg-black hover:bg-zinc-800 dark:bg-white dark:text-black transition text-white py-5 rounded-2xl text-lg font-medium flex justify-center items-center gap-2">
+          <a href={`https://wa.me/${content.whatsapp}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-black hover:bg-zinc-800 dark:bg-white dark:text-black transition text-white py-5 rounded-2xl text-lg font-medium flex justify-center items-center gap-2">
             <Phone size={19} /> WhatsApp
           </a>
-          <a href="mailto:fazriachmad898@gmail.com" className="flex-1 border-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition py-5 rounded-2xl text-lg font-medium flex justify-center items-center gap-2">
+          <a href={`mailto:${content.email}`} className="flex-1 border-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition py-5 rounded-2xl text-lg font-medium flex justify-center items-center gap-2">
             <Mail size={19} /> Email
           </a>
-          <a href="https://linkedin.com/in/fazriahmad" target="_blank" rel="noopener noreferrer" className="flex-1 border-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition py-5 rounded-2xl text-lg font-medium flex justify-center items-center gap-2">
+          <a href={content.linkedin} target="_blank" rel="noopener noreferrer" className="flex-1 border-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition py-5 rounded-2xl text-lg font-medium flex justify-center items-center gap-2">
             <ExternalLink size={19} /> LinkedIn
           </a>
         </div>
@@ -423,7 +517,7 @@ function Portfolio() {
               onClick={e => e.stopPropagation()} className="bg-white dark:bg-zinc-950 max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-3xl">
               <img src={selectedProject.image} className="w-full h-[380px] object-cover" alt="" />
               <div className="p-12">
-                <div className="uppercase tracking-[3px] text-teal-600 mb-3 text-sm">{selectedProject.category} • {selectedProject.views} {t.projects.views}</div>
+                <div className="uppercase tracking-[3px] text-teal-600 mb-3 text-sm">{selectedProject.category}</div>
                 <h3 className="text-5xl font-semibold tracking-tight mb-5">{selectedProject.title[lang]}</h3>
                 <p className="text-2xl leading-tight mb-9 text-zinc-600 dark:text-zinc-400">{selectedProject.longDesc[lang]}</p>
                 
@@ -467,6 +561,70 @@ function Portfolio() {
                   <div><div className="font-medium text-black dark:text-white mb-px">{t.analytics.traffic}</div>
                     {Object.entries(analytics.trafficSources).map(([k,v]) => <div key={k}>{k}: {v}%</div>)}
                   </div>
+                </div>
+              </div>
+
+              {/* Site Content — hero, about, skills, contact, photo */}
+              <div className="mb-9 border dark:border-zinc-800 rounded-2xl p-6 space-y-4">
+                <div className="uppercase tracking-[3px] mb-2 text-teal-600 font-medium text-xs">Site Content</div>
+
+                <div className="flex gap-2 items-center">
+                  {content.photo && <img src={content.photo} alt="" className="w-14 h-14 rounded-full object-cover shrink-0 border dark:border-zinc-800" />}
+                  <input value={content.photo} onChange={e => updateContent('photo', e.target.value)} className="text-sm bg-transparent border rounded p-2 flex-1 min-w-0" placeholder="Photo URL" />
+                  <label className="shrink-0 text-xs px-3 py-3 border rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800">
+                    Upload
+                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const dataUrl = await fileToCompressedDataUrl(file);
+                      updateContent('photo', dataUrl);
+                    }} />
+                  </label>
+                </div>
+
+                <input value={content.heroTitle} onChange={e => updateContent('heroTitle', e.target.value)} className="w-full text-sm bg-transparent border rounded p-2" placeholder="Nama / Hero title" />
+                <input value={content.heroSubtitle} onChange={e => updateContent('heroSubtitle', e.target.value)} className="w-full text-sm bg-transparent border rounded p-2" placeholder="Hero subtitle" />
+
+                <textarea value={content.about.en} onChange={e => updateAbout('en', e.target.value)} className="w-full text-sm bg-transparent border rounded p-3" rows={3} placeholder="About text (EN)" />
+                <textarea value={content.about.id} onChange={e => updateAbout('id', e.target.value)} className="w-full text-sm bg-transparent border rounded p-3" rows={3} placeholder="About text (ID)" />
+
+                <input value={content.skills.join(', ')} onChange={e => updateSkills(e.target.value)} className="w-full text-sm bg-transparent border rounded p-2" placeholder="Skills, comma separated" />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <input value={content.whatsapp} onChange={e => updateContent('whatsapp', e.target.value)} className="text-sm bg-transparent border rounded p-2" placeholder="WhatsApp (62812...)" />
+                  <input value={content.email} onChange={e => updateContent('email', e.target.value)} className="text-sm bg-transparent border rounded p-2" placeholder="Email" />
+                  <input value={content.linkedin} onChange={e => updateContent('linkedin', e.target.value)} className="text-sm bg-transparent border rounded p-2" placeholder="LinkedIn URL" />
+                </div>
+              </div>
+
+              {/* CV Files — separate PDF per language, downloaded to match the visitor's active language */}
+              <div className="mb-9 border dark:border-zinc-800 rounded-2xl p-6">
+                <div className="uppercase tracking-[3px] mb-4 text-teal-600 font-medium text-xs">CV File</div>
+                <div className="space-y-3">
+                  {(['id', 'en'] as const).map(cvLang => (
+                    <div key={cvLang} className="flex items-center gap-4">
+                      <span className="shrink-0 text-xs font-bold w-8 text-zinc-500">{cvLang.toUpperCase()}</span>
+                      <div className="flex-1 text-sm">
+                        {cv[cvLang].filename ? (
+                          <span>Aktif: <b>{cv[cvLang].filename}</b></span>
+                        ) : (
+                          <span className="text-zinc-500">Belum diunggah — tombol Download CV nonaktif untuk bahasa ini.</span>
+                        )}
+                      </div>
+                      <label className="shrink-0 text-xs px-4 py-2.5 border rounded-full cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800 font-medium">
+                        {cv[cvLang].filename ? 'Ganti PDF' : 'Upload PDF'}
+                        <input type="file" accept="application/pdf" className="hidden" onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadCv(cvLang, file);
+                        }} />
+                      </label>
+                      {cv[cvLang].filename && (
+                        <button onClick={() => deleteCv(cvLang)} className="shrink-0 text-xs px-4 py-2.5 border border-red-200 dark:border-red-900 text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-950 font-medium">
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
