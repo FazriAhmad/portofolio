@@ -21,5 +21,16 @@ export default defineConfig(async ({ mode }) => {
     plugins,
     envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
     define: processEnvDefines,
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom', 'react-dom/client'],
+            framer: ['framer-motion'],
+            icons: ['lucide-react'],
+          },
+        },
+      },
+    },
   };
 })

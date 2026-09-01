@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Moon, Sun, Globe, Download,
@@ -272,7 +271,14 @@ function Portfolio() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/content`).then(r => r.json()).then(setContent).catch(console.error);
+    // Merged over the defaults rather than replacing them: an API response that
+    // predates a field (a frontend deployed ahead of its migration, say) would
+    // otherwise leave content.education undefined and take the whole page down
+    // on the first render that reads it.
+    fetch(`${API_BASE}/api/content`)
+      .then(r => r.json())
+      .then(c => setContent({ ...defaultContent, ...c }))
+      .catch(console.error);
   }, []);
 
   // Site content (hero, about, skills, contact, photo) — persisted in Postgres via the API
