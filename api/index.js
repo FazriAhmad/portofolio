@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import pg from 'pg';
+import { seedProjects } from './projects-data.js';
 
 const isLocal = /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL || '');
 const pool = new pg.Pool({
@@ -13,33 +14,6 @@ const app = express();
 app.use(cors());
 // Bumped from Express's 100kb default so uploaded (base64) thumbnails fit; Vercel's own request limit is ~4.5mb.
 app.use(express.json({ limit: '5mb' }));
-
-const seedProjects = [
-  { title_en: "Japanese Flash Card", title_id: "Flash Card Kata Jepang",
-    description_en: "Interactive platform to learn Hiragana & Katakana", description_id: "Platform interaktif untuk mempelajari Hiragana & Katakana dengan metode pengulangan cerdas",
-    longdesc_en: "Interactive platform to learn Hiragana & Katakana with a smart spaced-repetition method.", longdesc_id: "Platform interaktif untuk mempelajari Hiragana & Katakana dengan metode pengulangan cerdas.",
-    image: "/images/flashcard.png", link: "https://flascard-japan.netlify.app", tags: ["React", "Web App"], category: "Education Tech" },
-  { title_en: "Money Manager", title_id: "Money Manager",
-    description_en: "Personal finance dashboard with cash flow insights", description_id: "Dashboard finansial pribadi untuk memantau arus kas dengan visualisasi data yang informatif",
-    longdesc_en: "Personal finance dashboard to monitor cash flow with informative data visualizations.", longdesc_id: "Dashboard finansial pribadi untuk memantau arus kas dengan visualisasi data yang informatif.",
-    image: "/images/money.png", link: "", tags: ["Laravel", "MySQL"], category: "In Progress" },
-  { title_en: "IoT Waste Sorter", title_id: "IoT Pemilah Sampah",
-    description_en: "ESP32-based smart metal/non-metal waste sorting", description_id: "Sistem cerdas berbasis ESP32 untuk memilah sampah logam dan non-logam secara otomatis",
-    longdesc_en: "Smart ESP32-based system that automatically sorts metal and non-metal waste.", longdesc_id: "Sistem cerdas berbasis ESP32 untuk memilah sampah logam dan non-logam secara otomatis.",
-    image: "/images/iot.png", link: "https://www.youtube.com/watch?v=x6azcS7iumg", tags: ["ESP32", "Sensors"], category: "IoT" },
-  { title_en: "Sebaran Masjid Bandung", title_id: "Sebaran Masjid Bandung",
-    description_en: "Mosque location mapping app for Bandung", description_id: "Aplikasi pemetaan lokasi masjid di area Bandung untuk mempermudah pencarian tempat ibadah",
-    longdesc_en: "Mapping application for mosque locations across Bandung to make finding places of worship easier.", longdesc_id: "Aplikasi pemetaan lokasi masjid di area Bandung untuk mempermudah pencarian tempat ibadah.",
-    image: "/images/masjid.png", link: "https://sebaran-masjid-bandung.free.je/masjid.php", tags: ["PHP", "GIS"], category: "Web App" },
-  { title_en: "Shiritori Zen", title_id: "Shiritori Zen",
-    description_en: "Traditional Japanese word-chain game, modern UI", description_id: "Game sambung kata tradisional Jepang yang dikemas dengan UI modern dan minimalis",
-    longdesc_en: "Traditional Japanese word-chain game wrapped in a modern, minimal UI.", longdesc_id: "Game sambung kata tradisional Jepang yang dikemas dengan UI modern dan minimalis.",
-    image: "/images/shiritorizen.png", link: "https://game-kata-fazriahmads-projects.vercel.app/", tags: ["JS", "Gaming"], category: "Gaming" },
-  { title_en: "Video Tutorial Apps", title_id: "Video Tutorial Apps",
-    description_en: "In-depth tutorials on my own apps' features", description_id: "Produksi konten tutorial mendalam mengenai penggunaan fitur-fitur aplikasi buatan saya",
-    longdesc_en: "Producing in-depth tutorial content covering the features of apps I built.", longdesc_id: "Produksi konten tutorial mendalam mengenai penggunaan fitur-fitur aplikasi buatan saya.",
-    image: "/images/panduan.png", link: "https://www.youtube.com/watch?v=ujRnZO3aUGU", tags: ["Content", "Youtube"], category: "Content" }
-];
 
 let ready;
 function init() {
@@ -83,6 +57,16 @@ function init() {
           photo TEXT
         )
       `);
+      // Added after the table shipped, so CREATE TABLE IF NOT EXISTS above would
+      // never introduce them on an existing deployment — hence the explicit ALTERs.
+      // Each holds a list of { period, title, org, desc }, one column per language.
+      for (const col of ['education', 'career', 'achievements']) {
+        for (const lang of ['en', 'id']) {
+          await pool.query(
+            `ALTER TABLE site_content ADD COLUMN IF NOT EXISTS ${col}_${lang} JSONB DEFAULT '[]'::jsonb`
+          );
+        }
+      }
       await pool.query(
         `INSERT INTO site_content (id, hero_title, hero_subtitle, about_en, about_id, skills, whatsapp, email, linkedin, photo)
          VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -105,6 +89,13 @@ function init() {
 }
 app.use((req, res, next) => { init().then(next).catch(next); });
 
+// Public read-only data, so let Vercel's CDN answer most visits instead of
+// waking a lambda and round-tripping to Postgres (~500ms) for every one of them.
+// stale-while-revalidate keeps serving instantly while the refresh happens in the
+// background, so an admin edit shows up within the minute without anyone waiting.
+const publicCache = (res) =>
+  res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+
 const toProject = (row) => ({
   id: row.id,
   title: { en: row.title_en, id: row.title_id },
@@ -119,6 +110,7 @@ const toProject = (row) => ({
 
 app.get('/api/projects', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM projects ORDER BY id');
+  publicCache(res);
   res.json(rows.map(toProject));
 });
 
@@ -176,6 +168,7 @@ app.get('/api/cv', async (req, res) => {
   const { rows } = await pool.query('SELECT lang, filename FROM cv_file');
   const byLang = { en: { filename: null }, id: { filename: null } };
   for (const r of rows) byLang[r.lang] = { filename: r.filename };
+  publicCache(res);
   res.json(byLang);
 });
 
@@ -212,15 +205,23 @@ const toContent = (row) => ({
   whatsapp: row.whatsapp,
   email: row.email,
   linkedin: row.linkedin,
-  photo: row.photo
+  photo: row.photo,
+  education: { en: row.education_en ?? [], id: row.education_id ?? [] },
+  career: { en: row.career_en ?? [], id: row.career_id ?? [] },
+  achievements: { en: row.achievements_en ?? [], id: row.achievements_id ?? [] }
 });
 
 app.get('/api/content', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM site_content WHERE id = 1');
+  publicCache(res);
   res.json(toContent(rows[0]));
 });
 
-const CONTENT_LANG_FIELDS = { about: 'about' };
+const CONTENT_LANG_FIELDS = {
+  about: 'about', education: 'education', career: 'career', achievements: 'achievements'
+};
+// Stored as jsonb, so the value is sent as a JSON string and cast on the way in.
+const CONTENT_JSON_FIELDS = new Set(['education', 'career', 'achievements']);
 const CONTENT_PLAIN_COLUMNS = {
   heroTitle: 'hero_title', heroSubtitle: 'hero_subtitle',
   skills: 'skills', whatsapp: 'whatsapp', email: 'email', linkedin: 'linkedin', photo: 'photo'
@@ -228,11 +229,16 @@ const CONTENT_PLAIN_COLUMNS = {
 
 app.patch('/api/content', async (req, res) => {
   const { field, lang, value } = req.body;
-  let column, val = value;
+  let column, val = value, cast = '';
 
   if (CONTENT_LANG_FIELDS[field]) {
     if (!['en', 'id'].includes(lang)) return res.status(400).json({ error: 'invalid lang' });
     column = `${CONTENT_LANG_FIELDS[field]}_${lang}`;
+    if (CONTENT_JSON_FIELDS.has(field)) {
+      if (!Array.isArray(value)) return res.status(400).json({ error: `${field} must be an array` });
+      val = JSON.stringify(value);
+      cast = '::jsonb';
+    }
   } else if (CONTENT_PLAIN_COLUMNS[field]) {
     column = CONTENT_PLAIN_COLUMNS[field];
     if (field === 'skills') val = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim()).filter(Boolean);
@@ -241,7 +247,7 @@ app.patch('/api/content', async (req, res) => {
   }
 
   const { rows } = await pool.query(
-    `UPDATE site_content SET ${column} = $1 WHERE id = 1 RETURNING *`,
+    `UPDATE site_content SET ${column} = $1${cast} WHERE id = 1 RETURNING *`,
     [val]
   );
   res.json(toContent(rows[0]));

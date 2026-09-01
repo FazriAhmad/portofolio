@@ -1,0 +1,10 @@
+# Never ship local credentials — the production DATABASE_URL comes from the
+# Vercel project's environment variables, not from a file in the bundle.
+.env
+server/.env
+server/.env.*
+!server/.env.example
+
+node_modules
+dist
+.git
