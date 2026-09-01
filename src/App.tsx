@@ -6,18 +6,11 @@ import {
   GraduationCap, Briefcase, Award, MapPin
 } from 'lucide-react';
 
-// Types
-interface Project {
-  id: number;
-  title: { en: string; id: string };
-  description: { en: string; id: string };
-  longDesc: { en: string; id: string };
-  image: string;
-  link: string;
-  tags: string[];
-  category: string;
-  views: number;
-}
+import type { Project, TimelineEntry, SiteContent, Message, TimelineField } from './types';
+
+// The dashboard is only ever opened by the owner, so it is split out of the
+// visitor's bundle and fetched on demand.
+const Admin = React.lazy(() => import('./Admin'));
 
 // longDesc uses a flat "## Heading" convention (see api/projects-data.js) so the
 // detail sections still fit the one TEXT column and the one admin textarea that
@@ -62,37 +55,6 @@ function LongDesc({ text }: { text: string }) {
     </div>
   );
 }
-
-// One shape for education, career, and achievements — they are all a dated line
-// with a name, a place, and an optional note, so they share an editor and a
-// renderer instead of three near-identical copies. org/desc may be left blank.
-interface TimelineEntry {
-  period: string;
-  title: string;
-  org: string;
-  location: string;
-  desc: string;
-  /** Optional logo (campus, company, issuer). Falls back to the section icon. */
-  image: string;
-}
-
-type Bilingual<T> = { en: T; id: T };
-
-interface SiteContent {
-  heroTitle: string;
-  heroSubtitle: string;
-  about: { en: string; id: string };
-  skills: string[];
-  whatsapp: string;
-  email: string;
-  linkedin: string;
-  photo: string;
-  education: Bilingual<TimelineEntry[]>;
-  career: Bilingual<TimelineEntry[]>;
-  achievements: Bilingual<TimelineEntry[]>;
-}
-
-const emptyEntry: TimelineEntry = { period: '', title: '', org: '', location: '', desc: '', image: '' };
 
 // Renders nothing at all when the list is empty, so a section the admin has not
 // filled in yet leaves no empty heading behind on the public page.
@@ -160,7 +122,12 @@ const translations = {
     about: { title: "About Me", education: "Education", career: "Career", achievements: "Achievements" },
     projects: { title: "Featured Projects", detail: "View Details" },
     skills: { title: "Skills & Expertise" },
-    contact: { title: "Let's Connect" },
+    contact: {
+      title: "Let's Connect", formTitle: "Send a message",
+      name: "Your name", email: "Email (optional)", message: "Message",
+      send: "Send message", sending: "Sending…", sent: "Thanks — I'll get back to you.",
+      error: "Could not send. Try WhatsApp or email above."
+    },
     cv: { downloads: "CV Downloads" },
     analytics: { pageViews: "Page Views", projectViews: "Project Views", traffic: "Traffic Sources", downloads: "CV Downloads" },
     lang: "EN", langSwitch: "Switch to Indonesian"
@@ -171,7 +138,12 @@ const translations = {
     about: { title: "Tentang Saya", education: "Pendidikan", career: "Karier", achievements: "Pencapaian" },
     projects: { title: "Proyek Unggulan", detail: "Lihat Detail" },
     skills: { title: "Keahlian & Keterampilan" },
-    contact: { title: "Mari Terhubung" },
+    contact: {
+      title: "Mari Terhubung", formTitle: "Kirim pesan",
+      name: "Nama kamu", email: "Email (opsional)", message: "Pesan",
+      send: "Kirim pesan", sending: "Mengirim…", sent: "Terima kasih — saya akan segera membalas.",
+      error: "Gagal mengirim. Coba WhatsApp atau email di atas."
+    },
     cv: { downloads: "Unduhan CV" },
     analytics: { pageViews: "Tampilan Halaman", projectViews: "Tampilan Proyek", traffic: "Sumber Trafik", downloads: "Unduhan CV" },
     lang: "ID", langSwitch: "Beralih ke English"
@@ -249,6 +221,9 @@ function Portfolio() {
   });
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [contactForm, setContactForm] = useState({ name: '', email: '', body: '' });
+  const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [activeSection, setActiveSection] = useState('home');
   const [cv, setCv] = useState<{ en: { filename: string | null }; id: { filename: string | null } }>({
     en: { filename: null }, id: { filename: null }
@@ -300,9 +275,46 @@ function Portfolio() {
     }).catch(console.error);
   };
 
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSendState('sending');
+    try {
+      const res = await fetch(`${API_BASE}/api/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactForm)
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setContactForm({ name: '', email: '', body: '' });
+      setSendState('sent');
+    } catch (err) {
+      console.error(err);
+      setSendState('error');
+    }
+  };
+
+  // Only fetched once the dashboard is actually opened — visitors have no use
+  // for the inbox, and it must never be served from cache.
+  const loadMessages = () => {
+    fetch(`${API_BASE}/api/messages`).then(r => r.json()).then(setMessages).catch(console.error);
+  };
+
+  const markMessageRead = (id: number, read: boolean) => {
+    setMessages(prev => prev.map(m => (m.id === id ? { ...m, read } : m)));
+    fetch(`${API_BASE}/api/messages/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ read })
+    }).catch(console.error);
+  };
+
+  const deleteMessage = (id: number) => {
+    setMessages(prev => prev.filter(m => m.id !== id));
+    fetch(`${API_BASE}/api/messages/${id}`, { method: 'DELETE' }).catch(console.error);
+  };
+
   // Education / career / achievements all edit the same way: rewrite the whole
   // list for the language currently selected in the admin panel.
-  type TimelineField = 'education' | 'career' | 'achievements';
   const updateTimeline = (field: TimelineField, entries: TimelineEntry[]) => {
     setContent(prev => ({ ...prev, [field]: { ...prev[field], [lang]: entries } }));
     fetch(`${API_BASE}/api/content`, {
@@ -343,6 +355,7 @@ function Portfolio() {
         e.preventDefault();
         if (isAdmin) {
           setShowAdmin(true);
+          loadMessages();
           return;
         }
         const input = window.prompt('Admin password:');
@@ -350,6 +363,7 @@ function Portfolio() {
           setIsAdmin(true);
           sessionStorage.setItem('portfolioIsAdmin', 'true');
           setShowAdmin(true);
+          loadMessages();
         } else if (input !== null) {
           window.alert('Wrong password.');
         }
@@ -657,6 +671,34 @@ function Portfolio() {
             <ExternalLink size={19} /> LinkedIn
           </a>
         </div>
+
+        {/* Feeds the dashboard inbox. Kept below the direct links, which stay the
+            fastest way to reach a reply. */}
+        <form onSubmit={sendMessage} className="mt-8 border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl p-6">
+          <div className="uppercase tracking-[3px] text-teal-600 text-xs font-medium mb-4">{t.contact.formTitle}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <input required maxLength={120} value={contactForm.name}
+              onChange={e => setContactForm({ ...contactForm, name: e.target.value })}
+              className="bg-transparent border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-teal-600 transition"
+              placeholder={t.contact.name} />
+            <input type="email" maxLength={200} value={contactForm.email}
+              onChange={e => setContactForm({ ...contactForm, email: e.target.value })}
+              className="bg-transparent border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-teal-600 transition"
+              placeholder={t.contact.email} />
+          </div>
+          <textarea required maxLength={4000} rows={4} value={contactForm.body}
+            onChange={e => setContactForm({ ...contactForm, body: e.target.value })}
+            className="w-full bg-transparent border border-zinc-300 dark:border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-teal-600 transition mb-3"
+            placeholder={t.contact.message} />
+          <div className="flex items-center gap-4">
+            <button type="submit" disabled={sendState === 'sending'}
+              className="px-8 py-3 bg-black dark:bg-white dark:text-black text-white rounded-full font-medium hover:opacity-90 transition disabled:opacity-50">
+              {sendState === 'sending' ? t.contact.sending : t.contact.send}
+            </button>
+            {sendState === 'sent' && <span className="text-sm text-teal-600">{t.contact.sent}</span>}
+            {sendState === 'error' && <span className="text-sm text-red-500">{t.contact.error}</span>}
+          </div>
+        </form>
       </section>
 
       {/* FOOTER */}
@@ -691,230 +733,39 @@ function Portfolio() {
         )}
       </AnimatePresence>
 
-      {/* ADMIN CMS PANEL - only reachable via Ctrl+Shift+A + password */}
-      <AnimatePresence>
-        {showAdmin && isAdmin && (
-          <div className="fixed inset-0 bg-black/90 z-[80] flex items-center justify-center p-5" onClick={() => setShowAdmin(false)}>
-            <div onClick={e => e.stopPropagation()} className="bg-white dark:bg-zinc-950 rounded-3xl w-full max-w-5xl max-h-[92vh] overflow-auto p-10 text-sm">
-              <div className="flex justify-between mb-9 items-center">
-                <div><div className="font-semibold text-3xl tracking-tight">Admin CMS</div><div className="text-xs text-zinc-500 mt-1">Edit projects • View stats • No database required</div></div>
-                <div className="flex items-center gap-3">
-                  <button onClick={logoutAdmin} className="text-xs px-4 py-2 border rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800">Logout</button>
-                  <button onClick={() => setShowAdmin(false)}><X /></button>
-                </div>
-              </div>
-
-              {/* Live Analytics */}
-              <div className="mb-9 bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-6">
-                <div className="uppercase tracking-[3px] mb-4 text-teal-600 font-medium text-xs">Live Analytics</div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-zinc-600 dark:text-zinc-400">
-                  <div><div className="font-medium text-black dark:text-white mb-px">{t.analytics.pageViews}</div>{Object.values(analytics.pageViews).reduce((a,b)=>a+b,0)} total</div>
-                  <div><div className="font-medium text-black dark:text-white mb-px">{t.analytics.projectViews}</div>{Object.values(analytics.projectViews).reduce((a,b)=>a+b,0)} total</div>
-                  <div><div className="font-medium text-black dark:text-white mb-px">{t.cv.downloads}</div>{analytics.cvDownloads}</div>
-                  <div><div className="font-medium text-black dark:text-white mb-px">{t.analytics.traffic}</div>
-                    {Object.entries(analytics.trafficSources).map(([k,v]) => <div key={k}>{k}: {v}%</div>)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Site Content — hero, about, skills, contact, photo */}
-              <div className="mb-9 border dark:border-zinc-800 rounded-2xl p-6 space-y-4">
-                <div className="uppercase tracking-[3px] mb-2 text-teal-600 font-medium text-xs">Site Content</div>
-
-                <div className="flex gap-2 items-center">
-                  {content.photo && <img src={content.photo} alt="" className="w-14 h-14 rounded-full object-cover shrink-0 border dark:border-zinc-800" />}
-                  <input value={content.photo} onChange={e => updateContent('photo', e.target.value)} className="text-sm bg-transparent border rounded p-2 flex-1 min-w-0" placeholder="Photo URL" />
-                  <label className="shrink-0 text-xs px-3 py-3 border rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800">
-                    Upload
-                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const dataUrl = await fileToCompressedDataUrl(file);
-                      updateContent('photo', dataUrl);
-                    }} />
-                  </label>
-                </div>
-
-                <input value={content.heroTitle} onChange={e => updateContent('heroTitle', e.target.value)} className="w-full text-sm bg-transparent border rounded p-2" placeholder="Nama / Hero title" />
-                <input value={content.heroSubtitle} onChange={e => updateContent('heroSubtitle', e.target.value)} className="w-full text-sm bg-transparent border rounded p-2" placeholder="Hero subtitle" />
-
-                <textarea value={content.about.en} onChange={e => updateAbout('en', e.target.value)} className="w-full text-sm bg-transparent border rounded p-3" rows={3} placeholder="About text (EN)" />
-                <textarea value={content.about.id} onChange={e => updateAbout('id', e.target.value)} className="w-full text-sm bg-transparent border rounded p-3" rows={3} placeholder="About text (ID)" />
-
-                <input value={content.skills.join(', ')} onChange={e => updateSkills(e.target.value)} className="w-full text-sm bg-transparent border rounded p-2" placeholder="Skills, comma separated" />
-
-                {/* Edits the list for whichever language the panel is set to, the
-                    same way project titles and descriptions already behave. */}
-                {([
-                  ['education', t.about.education, GraduationCap],
-                  ['career', t.about.career, Briefcase],
-                  ['achievements', t.about.achievements, Award]
-                ] as [TimelineField, string, typeof GraduationCap][]).map(([field, label, Icon]) => (
-                  <div key={field} className="border dark:border-zinc-800 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2 uppercase tracking-[2px] text-teal-600 text-xs font-medium">
-                        <Icon size={14} />
-                        {label} <span className="text-zinc-500">({lang.toUpperCase()})</span>
-                      </div>
-                      <button type="button"
-                        onClick={() => updateTimeline(field, [...content[field][lang], { ...emptyEntry }])}
-                        className="text-xs px-3 py-1.5 border rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800">
-                        + Add
-                      </button>
-                    </div>
-                    {!content[field][lang].length && (
-                      <div className="text-xs text-zinc-500">Empty — this section stays hidden on the page.</div>
-                    )}
-                    {content[field][lang].map((entry, i) => {
-                      const write = (patch: Partial<TimelineEntry>) =>
-                        updateTimeline(field, content[field][lang].map((e, j) => j === i ? { ...e, ...patch } : e));
-                      return (
-                        <div key={i} className="border-t dark:border-zinc-800 pt-3 mt-3 first:border-t-0 first:pt-0 first:mt-0">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                            <input value={entry.period} onChange={e => write({ period: e.target.value })} className="text-sm bg-transparent border rounded p-2 dark:border-zinc-800" placeholder="Period (Agustus 2021 – Agustus 2025)" />
-                            <input value={entry.title} onChange={e => write({ title: e.target.value })} className="text-sm bg-transparent border rounded p-2 dark:border-zinc-800" placeholder="Title" />
-                            <input value={entry.org} onChange={e => write({ org: e.target.value })} className="text-sm bg-transparent border rounded p-2 dark:border-zinc-800" placeholder="Institution / company" />
-                            <input value={entry.location ?? ''} onChange={e => write({ location: e.target.value })} className="text-sm bg-transparent border rounded p-2 dark:border-zinc-800" placeholder="Location (Bandung)" />
-                          </div>
-                          {/* Logo: paste a path or upload. Uploads are shrunk to 160px
-                              and kept as PNG so transparent logos stay transparent. */}
-                          <div className="flex gap-2 items-center mb-2">
-                            <span className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full overflow-hidden border dark:border-zinc-800">
-                              {entry.image
-                                ? <img src={entry.image} alt="" className="w-full h-full object-contain p-0.5" />
-                                : <Icon size={15} className="text-zinc-400" />}
-                            </span>
-                            <input value={entry.image ?? ''} onChange={e => write({ image: e.target.value })} className="flex-1 min-w-0 text-sm bg-transparent border rounded p-2 dark:border-zinc-800" placeholder="Logo URL (/images/telkom.png) — optional" />
-                            <label className="shrink-0 text-xs px-3 py-2 border rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800">
-                              Upload
-                              <input type="file" accept="image/*" className="hidden" onChange={async ev => {
-                                const file = ev.target.files?.[0];
-                                if (!file) return;
-                                write({ image: await fileToCompressedDataUrl(file, 160, 0.9, 'image/png') });
-                              }} />
-                            </label>
-                            {entry.image && (
-                              <button type="button" onClick={() => write({ image: '' })}
-                                className="shrink-0 text-xs px-3 py-2 border rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800">
-                                Clear
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            <textarea value={entry.desc} onChange={e => write({ desc: e.target.value })} className="flex-1 text-sm bg-transparent border rounded p-2 dark:border-zinc-800" rows={2} placeholder="Description (optional)" />
-                            <button type="button"
-                              onClick={() => updateTimeline(field, content[field][lang].filter((_, j) => j !== i))}
-                              className="shrink-0 text-xs px-3 border rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950 dark:border-zinc-800">
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <input value={content.whatsapp} onChange={e => updateContent('whatsapp', e.target.value)} className="text-sm bg-transparent border rounded p-2" placeholder="WhatsApp (62812...)" />
-                  <input value={content.email} onChange={e => updateContent('email', e.target.value)} className="text-sm bg-transparent border rounded p-2" placeholder="Email" />
-                  <input value={content.linkedin} onChange={e => updateContent('linkedin', e.target.value)} className="text-sm bg-transparent border rounded p-2" placeholder="LinkedIn URL" />
-                </div>
-              </div>
-
-              {/* CV Files — separate PDF per language, downloaded to match the visitor's active language */}
-              <div className="mb-9 border dark:border-zinc-800 rounded-2xl p-6">
-                <div className="uppercase tracking-[3px] mb-4 text-teal-600 font-medium text-xs">CV File</div>
-                <div className="space-y-3">
-                  {(['id', 'en'] as const).map(cvLang => (
-                    <div key={cvLang} className="flex items-center gap-4">
-                      <span className="shrink-0 text-xs font-bold w-8 text-zinc-500">{cvLang.toUpperCase()}</span>
-                      <div className="flex-1 text-sm">
-                        {cv[cvLang].filename ? (
-                          <span>Aktif: <b>{cv[cvLang].filename}</b></span>
-                        ) : (
-                          <span className="text-zinc-500">Belum diunggah — tombol Download CV nonaktif untuk bahasa ini.</span>
-                        )}
-                      </div>
-                      <label className="shrink-0 text-xs px-4 py-2.5 border rounded-full cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800 font-medium">
-                        {cv[cvLang].filename ? 'Ganti PDF' : 'Upload PDF'}
-                        <input type="file" accept="application/pdf" className="hidden" onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (file) uploadCv(cvLang, file);
-                        }} />
-                      </label>
-                      {cv[cvLang].filename && (
-                        <button onClick={() => deleteCv(cvLang)} className="shrink-0 text-xs px-4 py-2.5 border border-red-200 dark:border-red-900 text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-950 font-medium">
-                          Hapus
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Add New Project */}
-              <form onSubmit={addProject} className="mb-9 border dark:border-zinc-800 rounded-2xl p-6">
-                <div className="uppercase tracking-[3px] mb-4 text-teal-600 font-medium text-xs">Add New Project</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input placeholder="Title" value={newProject.title} onChange={e => setNewProject({...newProject, title: e.target.value})} className="bg-transparent border rounded-lg p-3 dark:border-zinc-800" required />
-                  <input placeholder="Category (e.g. Web App)" value={newProject.category} onChange={e => setNewProject({...newProject, category: e.target.value})} className="bg-transparent border rounded-lg p-3 dark:border-zinc-800" />
-                  <div className="flex gap-2 items-center">
-                    <input placeholder="Image URL (e.g. /images/project1.jpg)" value={newProject.image} onChange={e => setNewProject({...newProject, image: e.target.value})} className="bg-transparent border rounded-lg p-3 dark:border-zinc-800 flex-1" />
-                    <label className="shrink-0 text-xs px-3 py-3 border rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800">
-                      Upload
-                      <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const dataUrl = await fileToCompressedDataUrl(file);
-                        setNewProject(prev => ({ ...prev, image: dataUrl }));
-                      }} />
-                    </label>
-                  </div>
-                  <input placeholder="Project link (https://...)" value={newProject.link} onChange={e => setNewProject({...newProject, link: e.target.value})} className="bg-transparent border rounded-lg p-3 dark:border-zinc-800" />
-                  <input placeholder="Tags, comma separated (React, Web App)" value={newProject.tags} onChange={e => setNewProject({...newProject, tags: e.target.value})} className="bg-transparent border rounded-lg p-3 dark:border-zinc-800 md:col-span-2" />
-                  <textarea placeholder="Description" value={newProject.description} onChange={e => setNewProject({...newProject, description: e.target.value})} className="bg-transparent border rounded-lg p-3 dark:border-zinc-800 md:col-span-2" rows={2} required />
-                </div>
-                <button type="submit" className="mt-4 px-6 py-3 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition">Add Project</button>
-              </form>
-
-              {/* Existing Projects */}
-              <div className="uppercase tracking-[3px] mb-4 text-teal-600 font-medium text-xs">Existing Projects</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-9">
-                {projects.map(proj => (
-                  <div key={proj.id} className="border p-6 rounded-2xl dark:border-zinc-800">
-                    <input value={proj.title[lang]} onChange={e => updateProject(proj.id, 'title', e.target.value)} className="font-semibold text-xl w-full bg-transparent border-b pb-1 mb-2 outline-none" placeholder="Title" />
-                    <textarea value={proj.description[lang]} onChange={e => updateProject(proj.id, 'description', e.target.value)} className="w-full text-sm bg-transparent border rounded p-3 mb-2" rows={2} placeholder="Short description" />
-                    <textarea value={proj.longDesc[lang]} onChange={e => updateProject(proj.id, 'longDesc', e.target.value)} className="w-full text-sm bg-transparent border rounded p-3 mb-2 font-mono" rows={12} placeholder="Long description — use ## Heading per section (detail modal)" />
-                    <div className="flex gap-2 items-center mb-2">
-                      {proj.image && <img src={proj.image} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 border dark:border-zinc-800" />}
-                      <input value={proj.image} onChange={e => updateProjectField(proj.id, 'image', e.target.value)} className="text-sm bg-transparent border rounded p-2 flex-1 min-w-0" placeholder="Image URL" />
-                      <label className="shrink-0 text-xs px-3 py-2 border rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 dark:border-zinc-800">
-                        Upload
-                        <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const dataUrl = await fileToCompressedDataUrl(file);
-                          updateProjectField(proj.id, 'image', dataUrl);
-                        }} />
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mb-2">
-                      <input value={proj.category} onChange={e => updateProjectField(proj.id, 'category', e.target.value)} className="text-sm bg-transparent border rounded p-2" placeholder="Category" />
-                      <input value={proj.link} onChange={e => updateProjectField(proj.id, 'link', e.target.value)} className="text-sm bg-transparent border rounded p-2 col-span-2" placeholder="Project link" />
-                      <input value={proj.tags.join(', ')} onChange={e => updateProjectField(proj.id, 'tags', e.target.value)} className="text-sm bg-transparent border rounded p-2 col-span-2" placeholder="Tags, comma separated" />
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="text-xs text-teal-600">Views: {proj.views}</div>
-                      <button onClick={() => deleteProject(proj.id)} className="text-xs text-red-500 hover:underline">Delete</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="text-xs text-center text-zinc-400">All edits &amp; analytics are saved locally. Refreshing the page keeps all your data.</div>
-            </div>
+      {/* ADMIN DASHBOARD — Ctrl+Shift+A, then the password */}
+      {showAdmin && isAdmin && (
+        <React.Suspense fallback={
+          <div className="fixed inset-0 z-[80] bg-[#0a0a0a] text-white/40 flex items-center justify-center text-sm">
+            Loading dashboard…
           </div>
-        )}
-      </AnimatePresence>
+        }>
+          <Admin
+            lang={lang}
+            content={content}
+            projects={projects}
+            messages={messages}
+            cv={cv}
+            newProject={newProject}
+            setNewProject={setNewProject}
+            addProject={addProject}
+            updateContent={updateContent}
+            updateAbout={updateAbout}
+            updateSkills={updateSkills}
+            updateTimeline={updateTimeline}
+            updateProject={updateProject}
+            updateProjectField={updateProjectField}
+            deleteProject={deleteProject}
+            uploadCv={uploadCv}
+            deleteCv={deleteCv}
+            markMessageRead={markMessageRead}
+            deleteMessage={deleteMessage}
+            compressImage={fileToCompressedDataUrl}
+            onClose={() => setShowAdmin(false)}
+            onLogout={logoutAdmin}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 }

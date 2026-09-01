@@ -48,6 +48,16 @@ function init() {
         )
       `);
       await pool.query(`
+        CREATE TABLE IF NOT EXISTS messages (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT,
+          body TEXT NOT NULL,
+          read BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS site_content (
           id INT PRIMARY KEY DEFAULT 1,
           hero_title TEXT, hero_subtitle TEXT,
@@ -93,8 +103,12 @@ app.use((req, res, next) => { init().then(next).catch(next); });
 // waking a lambda and round-tripping to Postgres (~500ms) for every one of them.
 // stale-while-revalidate keeps serving instantly while the refresh happens in the
 // background, so an admin edit shows up within the minute without anyone waiting.
+// max-age=0 keeps the *browser* revalidating every time (a cheap 304), while
+// s-maxage lets Vercel's CDN absorb the load. Without it the browser applies its
+// own heuristic freshness and can serve an edit-stale copy for minutes — which
+// is exactly what happened after repointing image paths.
 const publicCache = (res) =>
-  res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+  res.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=600');
 
 const toProject = (row) => ({
   id: row.id,
@@ -194,6 +208,49 @@ app.put('/api/cv/:lang', async (req, res) => {
 app.delete('/api/cv/:lang', async (req, res) => {
   if (!['en', 'id'].includes(req.params.lang)) return res.status(400).json({ error: 'invalid lang' });
   await pool.query('DELETE FROM cv_file WHERE lang = $1', [req.params.lang]);
+  res.status(204).end();
+});
+
+const toMessage = (row) => ({
+  id: row.id,
+  name: row.name,
+  email: row.email,
+  body: row.body,
+  read: row.read,
+  createdAt: row.created_at
+});
+
+// Never cached: the admin inbox has to show a message the moment it arrives.
+app.get('/api/messages', async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM messages ORDER BY created_at DESC');
+  res.json(rows.map(toMessage));
+});
+
+// Public — this is what the contact form posts to. Bounded so a bot cannot
+// stuff the table with megabytes; the field limits mirror the form's own.
+app.post('/api/messages', async (req, res) => {
+  const name = String(req.body.name ?? '').trim().slice(0, 120);
+  const email = String(req.body.email ?? '').trim().slice(0, 200);
+  const body = String(req.body.body ?? '').trim().slice(0, 4000);
+  if (!name || !body) return res.status(400).json({ error: 'name and body required' });
+  const { rows } = await pool.query(
+    'INSERT INTO messages (name, email, body) VALUES ($1,$2,$3) RETURNING *',
+    [name, email, body]
+  );
+  res.status(201).json(toMessage(rows[0]));
+});
+
+app.patch('/api/messages/:id', async (req, res) => {
+  const { rows } = await pool.query(
+    'UPDATE messages SET read = $1 WHERE id = $2 RETURNING *',
+    [!!req.body.read, req.params.id]
+  );
+  if (!rows[0]) return res.status(404).end();
+  res.json(toMessage(rows[0]));
+});
+
+app.delete('/api/messages/:id', async (req, res) => {
+  await pool.query('DELETE FROM messages WHERE id = $1', [req.params.id]);
   res.status(204).end();
 });
 
