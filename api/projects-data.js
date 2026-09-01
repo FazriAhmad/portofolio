@@ -46,7 +46,7 @@ Vanilla JavaScript (ES modules), Vite, HTML dan CSS. Data deck dihasilkan lewat 
 
 ## Alur Kerja
 Script build memindai folder audio dan membaca setiap nama file berformat "Kata【bacaan】.mp3", mencocokkannya dengan kamus bahasa Indonesia, lalu menghasilkan modul data flashcard. Saat dijalankan, aplikasi mengacak deck tersebut, mengambil satu kartu, membuat satu jawaban benar dan tiga pengecoh, memutar audionya, lalu menilai jawaban dan lanjut ke ronde berikutnya — sampai tiga nyawa habis.`,
-    image: "/images/flashcard.png", link: "https://flascard-japan.netlify.app",
+    image: "/images/flashcard.jpg", link: "https://flascard-japan.netlify.app",
     tags: ["Vanilla JS", "Vite", "Web App"], category: "Education Tech"
   },
   {
@@ -133,7 +133,7 @@ Mikrokontroler ESP32 yang diprogram di lingkungan Arduino/C++, dengan sensor pen
 
 ## Alur Kerja
 Benda yang dimasukkan ke lubang masuk melewati tahap sensor, tempat ESP32 membaca sinyal untuk mengklasifikasikannya sebagai logam atau non-logam. Berdasarkan pembacaan itu, kontroler menggerakkan aktuator pemilah ke posisi yang sesuai, benda jatuh ke wadah yang tepat, lalu mekanisme kembali ke posisi netral dan siap menerima benda berikutnya. Demo unit yang berfungsi dapat dilihat di YouTube.`,
-    image: "/images/iot.png", link: "https://www.youtube.com/watch?v=x6azcS7iumg",
+    image: "/images/iot.jpg", link: "https://www.youtube.com/watch?v=x6azcS7iumg",
     tags: ["ESP32", "Arduino", "Sensors"], category: "IoT"
   },
   {
@@ -178,7 +178,7 @@ PHP untuk aplikasi sisi server, dengan lapisan pemetaan/GIS untuk tampilan sebar
 
 ## Alur Kerja
 Data masjid, yang masing-masing ditandai kecamatan dan koordinatnya, disajikan dari basis data ke dalam tiga tampilan dari data yang sama: diplot satu per satu di peta, diringkas menjadi tabel statistik per kecamatan, dan disaring melalui fitur pencarian. Jadwal shalat dihitung untuk posisi Kota Bandung dan ditampilkan berdampingan dengan jam berjalan di halaman utama.`,
-    image: "/images/masjid.png", link: "https://sebaran-masjid-bandung.free.je/masjid.php",
+    image: "/images/masjid.jpg", link: "https://sebaran-masjid-bandung.free.je/masjid.php",
     tags: ["PHP", "GIS", "Web App"], category: "Web App"
   },
   {
@@ -264,7 +264,7 @@ Perekaman layar dan penyuntingan video, dipublikasikan melalui YouTube.
 
 ## Alur Kerja
 Setiap aplikasi dibedah fitur demi fitur: alurnya direncanakan, direkam pada aplikasi yang sedang berjalan, dinarasikan, lalu disunting menjadi video yang mengikuti jalur yang sama seperti yang ditempuh pengguna baru pada kunjungan pertamanya.`,
-    image: "/images/panduan.png", link: "https://www.youtube.com/watch?v=ujRnZO3aUGU",
+    image: "/images/panduan.jpg", link: "https://www.youtube.com/watch?v=ujRnZO3aUGU",
     tags: ["Content", "Youtube"], category: "Content"
   },
   {
