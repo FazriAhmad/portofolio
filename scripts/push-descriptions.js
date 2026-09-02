@@ -13,10 +13,19 @@ import { seedProjects } from '../api/projects-data.js';
 
 const API = process.argv[2] || 'http://localhost:4000';
 
+// Writing is authenticated now, so the same token the dashboard uses has to be
+// present here too: ADMIN_TOKEN=... node scripts/push-descriptions.js <url>
+const TOKEN = process.env.ADMIN_TOKEN;
+if (!TOKEN) {
+  console.error('Set ADMIN_TOKEN before running this (it must match the API\'s own).');
+  process.exit(1);
+}
+const authHeaders = { 'Content-Type': 'application/json', 'x-admin-token': TOKEN };
+
 async function patch(id, body) {
   const res = await fetch(`${API}/api/projects/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
     body: JSON.stringify(body)
   });
   if (!res.ok) throw new Error(`PATCH ${id} ${JSON.stringify(body).slice(0, 60)} -> ${res.status}`);
@@ -25,7 +34,7 @@ async function patch(id, body) {
 async function create(p) {
   const res = await fetch(`${API}/api/projects`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
     body: JSON.stringify({
       title: p.title_en, description: p.description_en,
       image: p.image, link: p.link, tags: p.tags, category: p.category

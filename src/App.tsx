@@ -164,9 +164,19 @@ const defaultContent: SiteContent = {
   achievements: { en: [], id: [] }
 };
 
-// ponytail: password client-side & hardcode, cukup buat sembunyiin dari pengunjung biasa,
-// BUKAN keamanan sungguhan (siapa pun bisa baca dari source JS). Upgrade ke backend auth kalau serius.
-const ADMIN_PASSWORD = "fazri2026";
+// The token is never in this bundle: it is typed in, kept for the tab session,
+// and sent as a header the API checks against its own env var. A wrong one gets
+// a 401 from the server rather than being compared here, so reading the source
+// tells an attacker nothing.
+const TOKEN_KEY = 'portfolioAdminToken';
+const getAdminToken = () => {
+  try { return sessionStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+};
+const adminFetch = (url: string, init: RequestInit = {}) =>
+  fetch(url, {
+    ...init,
+    headers: { ...(init.headers as Record<string, string> | undefined), 'x-admin-token': getAdminToken() }
+  });
 const emptyProjectForm = { title: '', description: '', image: '', link: '', tags: '', category: '' };
 
 // Resizes/compresses an uploaded image client-side and returns a data: URL,
@@ -259,7 +269,7 @@ function Portfolio() {
   // Site content (hero, about, skills, contact, photo) — persisted in Postgres via the API
   const updateContent = (field: 'heroTitle' | 'heroSubtitle' | 'whatsapp' | 'email' | 'linkedin' | 'photo', value: string) => {
     setContent(prev => ({ ...prev, [field]: value }));
-    fetch(`${API_BASE}/api/content`, {
+    adminFetch(`${API_BASE}/api/content`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field, value })
@@ -268,7 +278,7 @@ function Portfolio() {
 
   const updateAbout = (aboutLang: 'en' | 'id', value: string) => {
     setContent(prev => ({ ...prev, about: { ...prev.about, [aboutLang]: value } }));
-    fetch(`${API_BASE}/api/content`, {
+    adminFetch(`${API_BASE}/api/content`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field: 'about', lang: aboutLang, value })
@@ -296,12 +306,30 @@ function Portfolio() {
   // Only fetched once the dashboard is actually opened — visitors have no use
   // for the inbox, and it must never be served from cache.
   const loadMessages = () => {
-    fetch(`${API_BASE}/api/messages`).then(r => r.json()).then(setMessages).catch(console.error);
+    adminFetch(`${API_BASE}/api/messages`)
+      .then(async res => {
+        if (!res.ok) {
+          // A refusal returns {error}, not a list. Storing that object crashed
+          // the whole page on the first render that called messages.slice().
+          // It happens whenever a stored session no longer authenticates — a
+          // session flag left from before auth existed, or a rotated token — so
+          // the session is dropped and the token asked for again.
+          setIsAdmin(false);
+          setShowAdmin(false);
+          setMessages([]);
+          sessionStorage.removeItem('portfolioIsAdmin');
+          sessionStorage.removeItem(TOKEN_KEY);
+          return;
+        }
+        const data = await res.json();
+        setMessages(Array.isArray(data) ? data : []);
+      })
+      .catch(console.error);
   };
 
   const markMessageRead = (id: number, read: boolean) => {
     setMessages(prev => prev.map(m => (m.id === id ? { ...m, read } : m)));
-    fetch(`${API_BASE}/api/messages/${id}`, {
+    adminFetch(`${API_BASE}/api/messages/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ read })
@@ -310,14 +338,14 @@ function Portfolio() {
 
   const deleteMessage = (id: number) => {
     setMessages(prev => prev.filter(m => m.id !== id));
-    fetch(`${API_BASE}/api/messages/${id}`, { method: 'DELETE' }).catch(console.error);
+    adminFetch(`${API_BASE}/api/messages/${id}`, { method: 'DELETE' }).catch(console.error);
   };
 
   // Education / career / achievements all edit the same way: rewrite the whole
   // list for the language currently selected in the admin panel.
   const updateTimeline = (field: TimelineField, entries: TimelineEntry[]) => {
     setContent(prev => ({ ...prev, [field]: { ...prev[field], [lang]: entries } }));
-    fetch(`${API_BASE}/api/content`, {
+    adminFetch(`${API_BASE}/api/content`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field, lang, value: entries })
@@ -327,7 +355,7 @@ function Portfolio() {
   const updateSkills = (rawValue: string) => {
     const value = rawValue.split(',').map(s => s.trim()).filter(Boolean);
     setContent(prev => ({ ...prev, skills: value }));
-    fetch(`${API_BASE}/api/content`, {
+    adminFetch(`${API_BASE}/api/content`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field: 'skills', value })
@@ -358,15 +386,28 @@ function Portfolio() {
           loadMessages();
           return;
         }
-        const input = window.prompt('Admin password:');
-        if (input === ADMIN_PASSWORD) {
-          setIsAdmin(true);
-          sessionStorage.setItem('portfolioIsAdmin', 'true');
-          setShowAdmin(true);
-          loadMessages();
-        } else if (input !== null) {
-          window.alert('Wrong password.');
-        }
+        const input = window.prompt('Admin token:');
+        if (input === null) return;
+        // The server decides, not this bundle: the token is proved by using it
+        // on a protected route, and only kept if that route accepts it.
+        sessionStorage.setItem(TOKEN_KEY, input);
+        fetch(`${API_BASE}/api/messages`, { headers: { 'x-admin-token': input } })
+          .then(res => {
+            if (res.ok) {
+              setIsAdmin(true);
+              sessionStorage.setItem('portfolioIsAdmin', 'true');
+              setShowAdmin(true);
+              return res.json().then(setMessages);
+            }
+            sessionStorage.removeItem(TOKEN_KEY);
+            window.alert(res.status === 503
+              ? 'ADMIN_TOKEN is not configured on the server.'
+              : 'Wrong token.');
+          })
+          .catch(() => {
+            sessionStorage.removeItem(TOKEN_KEY);
+            window.alert('Could not reach the API.');
+          });
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -455,7 +496,7 @@ function Portfolio() {
   // Admin CMS - Simple editable projects
   const updateProject = (id: number, field: string, value: string) => {
     setProjects(prev => prev.map(p => p.id === id ? { ...p, [field]: { ...(p[field as keyof Project] as any), [lang]: value } } : p));
-    fetch(`${API_BASE}/api/projects/${id}`, {
+    adminFetch(`${API_BASE}/api/projects/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field, lang, value })
@@ -466,7 +507,7 @@ function Portfolio() {
   const updateProjectField = (id: number, field: 'image' | 'link' | 'category' | 'tags', rawValue: string) => {
     const value: string | string[] = field === 'tags' ? rawValue.split(',').map(t => t.trim()).filter(Boolean) : rawValue;
     setProjects(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-    fetch(`${API_BASE}/api/projects/${id}`, {
+    adminFetch(`${API_BASE}/api/projects/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field, value })
@@ -483,7 +524,7 @@ function Portfolio() {
       return;
     }
     const data = await fileToDataUrl(file);
-    await fetch(`${API_BASE}/api/cv/${cvLang}`, {
+    await adminFetch(`${API_BASE}/api/cv/${cvLang}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: file.name, data })
@@ -492,19 +533,19 @@ function Portfolio() {
   };
 
   const deleteCv = async (cvLang: 'en' | 'id') => {
-    await fetch(`${API_BASE}/api/cv/${cvLang}`, { method: 'DELETE' });
+    await adminFetch(`${API_BASE}/api/cv/${cvLang}`, { method: 'DELETE' });
     setCv(prev => ({ ...prev, [cvLang]: { filename: null } }));
   };
 
   const deleteProject = (id: number) => {
     setProjects(prev => prev.filter(p => p.id !== id));
-    fetch(`${API_BASE}/api/projects/${id}`, { method: 'DELETE' }).catch(console.error);
+    adminFetch(`${API_BASE}/api/projects/${id}`, { method: 'DELETE' }).catch(console.error);
   };
 
   const addProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProject.title || !newProject.description) return;
-    fetch(`${API_BASE}/api/projects`, {
+    adminFetch(`${API_BASE}/api/projects`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -525,7 +566,9 @@ function Portfolio() {
   const logoutAdmin = () => {
     setIsAdmin(false);
     setShowAdmin(false);
+    setMessages([]);
     sessionStorage.removeItem('portfolioIsAdmin');
+    sessionStorage.removeItem(TOKEN_KEY);
   };
 
   return (

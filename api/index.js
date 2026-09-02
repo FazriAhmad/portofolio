@@ -11,9 +11,44 @@ const pool = new pg.Pool({
 });
 
 const app = express();
-app.use(cors());
+app.use(cors({ exposedHeaders: [], allowedHeaders: ['Content-Type', 'x-admin-token'] }));
 // Bumped from Express's 100kb default so uploaded (base64) thumbnails fit; Vercel's own request limit is ~4.5mb.
 app.use(express.json({ limit: '5mb' }));
+
+// Everything the public site legitimately needs, and nothing else. Anything not
+// listed here requires the admin token, so a route added later is protected by
+// default rather than accidentally left open.
+const PUBLIC_ROUTES = [
+  ['GET', /^\/api\/projects$/],
+  ['GET', /^\/api\/content$/],
+  ['GET', /^\/api\/cv$/],
+  ['GET', /^\/api\/cv\/(en|id)$/],
+  ['POST', /^\/api\/projects\/\d+\/view$/],
+  ['POST', /^\/api\/messages$/],          // the contact form
+];
+
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
+  if (PUBLIC_ROUTES.some(([m, re]) => m === req.method && re.test(req.path))) return next();
+
+  // Refusing outright when the server has no token configured: falling back to
+  // "open" would silently restore the very hole this closes.
+  if (!ADMIN_TOKEN) {
+    return res.status(503).json({ error: 'ADMIN_TOKEN is not configured on the server' });
+  }
+  const sent = req.get('x-admin-token') || '';
+  // Constant-length compare avoids leaking the token's length through timing.
+  if (sent.length === ADMIN_TOKEN.length && timingSafeEqualStr(sent, ADMIN_TOKEN)) return next();
+  res.status(401).json({ error: 'unauthorized' });
+});
+
+function timingSafeEqualStr(a, b) {
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 
 let ready;
 function init() {

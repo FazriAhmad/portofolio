@@ -22,6 +22,13 @@ const args = process.argv.slice(2);
 const apply = args.includes('--apply');
 const API = args.find(a => !a.startsWith('--')) || 'http://localhost:4000';
 
+// Only --apply writes, so the token is required just for that pass.
+const TOKEN = process.env.ADMIN_TOKEN;
+if (apply && !TOKEN) {
+  console.error('Set ADMIN_TOKEN before running with --apply (it must match the API\'s own).');
+  process.exit(1);
+}
+
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const projects = await fetch(`${API}/api/projects`).then(r => r.json());
@@ -47,7 +54,7 @@ for (const p of bloated) {
   if (apply) {
     const res = await fetch(`${API}/api/projects/${p.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN },
       body: JSON.stringify({ field: 'image', value: `/images/${file}` })
     });
     if (!res.ok) throw new Error(`PATCH ${p.id} -> ${res.status}`);
