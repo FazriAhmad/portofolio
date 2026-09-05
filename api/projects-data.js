@@ -358,5 +358,107 @@ Setiap jawaban dinilai dalam empat tingkat, dan penilaian itu memberi masukan ke
     image: "/images/project1.jpg",
     link: "https://drive.google.com/file/d/1HRp15kdDE-uNZKMAPfYz8QaxQPjvpkBl/view?usp=sharing",
     tags: ["Next.js", "TypeScript", "PostgreSQL"], category: "Education Tech"
+  },
+  {
+    title_en: "LMS", title_id: "LMS(Learning Management System)",
+    description_en: "Multi-role school learning platform, from lessons to report cards",
+    description_id: "Platform pembelajaran sekolah multi-peran, dari materi sampai rapor",
+    longdesc_en: `## Summary
+A learning management system for a whole school, where seven different roles — from student and parent to teacher, homeroom teacher, principal, and admin — each see the part of the system that belongs to them.
+
+## Problem It Solves
+Schools rarely lack software; they lack one place for it. Attendance lives in a spreadsheet, grades in another, announcements in a chat group, and the curriculum in a document nobody opens. Parents get the least of all — usually a report card twice a year and no idea what happened in between. Pulling it into one system means a grade entered by a teacher is the same grade the parent sees that evening.
+
+## Key Features
+- Seven roles with their own dashboards: Super Admin, Admin, Principal, Teacher, Homeroom Teacher, Student, Parent
+- Assignments, submissions, and grading with configurable grade weights
+- Attendance, including a QR-code session a teacher opens and students scan
+- Quizzes and exams with a question bank, timed players, and a fullscreen lock during exams
+- Curriculum planning in the Indonesian CP/TP/ATP structure, plus an academic calendar
+- Course materials with per-student progress tracking
+- Parent access, discussion forums, file storage with usage monitoring, and academic reports
+- Two-factor authentication and an audit log over sensitive actions
+
+## Tech Stack
+Backend: Laravel 13 on PHP 8.3 as a REST API, with Sanctum for tokens and spatie/laravel-permission for the role and permission layer — 36 models across 42 migrations. Frontend: React 19 with Vite, TypeScript, React Router 7, Tailwind CSS 4, Framer Motion, and Lucide.
+
+## How It Works
+The React client authenticates against the Laravel API and receives a Sanctum token; every later request carries it, and the permission layer decides which of the seven roles may reach each endpoint. The same underlying record surfaces differently per role — a grade a teacher enters is what the student opens, what the homeroom teacher totals, and what the parent reads. All 21 pages read live data from the API rather than fixtures, and sensitive actions are written to an audit log as they happen.`,
+    longdesc_id: `## Ringkasan
+Sistem manajemen pembelajaran untuk satu sekolah utuh, di mana tujuh peran berbeda — dari siswa dan orang tua sampai guru, wali kelas, kepala sekolah, dan admin — masing-masing melihat bagian sistem yang memang menjadi urusannya.
+
+## Masalah yang Diselesaikan
+Sekolah jarang kekurangan aplikasi; yang kurang adalah satu tempat untuk semuanya. Presensi ada di satu spreadsheet, nilai di spreadsheet lain, pengumuman di grup chat, dan kurikulum di dokumen yang tak pernah dibuka. Orang tua paling buntung — biasanya hanya menerima rapor dua kali setahun tanpa tahu apa yang terjadi di antaranya. Menyatukannya berarti nilai yang diinput guru adalah nilai yang dibaca orang tua malam itu juga.
+
+## Fitur Utama
+- Tujuh peran dengan dashboard masing-masing: Super Admin, Admin, Kepala Sekolah, Guru, Wali Kelas, Siswa, Orang Tua
+- Tugas, pengumpulan, dan penilaian dengan bobot nilai yang bisa diatur
+- Presensi, termasuk sesi QR yang dibuka guru lalu dipindai siswa
+- Kuis dan ujian dengan bank soal, pemutar bertimer, serta kunci layar penuh selama ujian
+- Perencanaan kurikulum dalam struktur CP/TP/ATP, dilengkapi kalender akademik
+- Materi pembelajaran dengan pelacakan progres per siswa
+- Akses orang tua, forum diskusi, penyimpanan berkas dengan pemantauan kuota, dan laporan akademik
+- Autentikasi dua faktor serta log audit untuk aksi-aksi sensitif
+
+## Tech Stack
+Backend: Laravel 13 di atas PHP 8.3 sebagai REST API, dengan Sanctum untuk token dan spatie/laravel-permission sebagai lapisan peran dan izin — 36 model dalam 42 migrasi. Frontend: React 19 dengan Vite, TypeScript, React Router 7, Tailwind CSS 4, Framer Motion, dan Lucide.
+
+## Alur Kerja
+Klien React melakukan autentikasi ke API Laravel dan menerima token Sanctum; setiap permintaan berikutnya membawanya, lalu lapisan izin menentukan peran mana dari ketujuhnya yang boleh menyentuh tiap endpoint. Data yang sama tampil berbeda menurut peran — nilai yang diinput guru adalah nilai yang dibuka siswa, yang direkap wali kelas, dan yang dibaca orang tua. Seluruh 21 halaman membaca data asli dari API, bukan data contoh, dan aksi sensitif dicatat ke log audit begitu terjadi.`,
+    image: "/images/project2.jpg",
+    link: "https://drive.google.com/file/d/1N2vCesdZIqqf8JhHmPKWq7v9nlmoQ44f/view?usp=sharing",
+    tags: ["Laravel", "React", "TypeScript"], category: "Education Tech"
+  },
+  {
+    title_en: "Area Play", title_id: "Area Play",
+    description_en: "Sports venue booking with online payment and conflict detection",
+    description_id: "Booking lapangan olahraga dengan pembayaran online dan deteksi bentrok",
+    longdesc_en: `## Summary
+A booking platform for sports venues: customers reserve a court by the hour and pay online, while the owner and their staff run the day from the other side of the same system.
+
+## Problem It Solves
+Court booking usually runs through a WhatsApp message and a notebook, and that arrangement breaks in predictable ways — two people promised the same hour, a deposit nobody recorded, a regular who has to re-book the same Tuesday slot every single week. The owner also ends the month with no real picture of which courts actually earn.
+
+## Key Features
+- Hourly availability grid per court, with conflict detection as the core rule
+- Online payment through Midtrans, as a deposit or in full, plus QRIS and bank transfer per venue
+- Recurring bookings that generate weekly sessions until a date or a session count
+- Split payments so a group can share one booking's cost
+- Voucher codes by percent or amount, with minimum spend, quota, period, and per-venue scope
+- Memberships with a discount, applied for from the web and approved by the admin
+- Four roles: owner, cashier, field officer, and customer, each with a different reach
+- Walk-in entry, slot blocking, refunds, ratings and reviews, announcements, and revenue analytics
+- Venue locations on a map, and an activity log over every staff action that changes data
+
+## Tech Stack
+Backend: Laravel 13 on PHP 8.3 as a REST API, with Sanctum and spatie/laravel-permission — 14 models across 33 migrations. Frontend: React 19 with Vite, TypeScript, React Router 7, Tailwind CSS 4, Framer Motion, and Leaflet for the venue map. Payments run through Midtrans.
+
+## How It Works
+A customer picks a venue, a court, and an hour from the availability grid; the request is checked against existing bookings and blocked slots before it is accepted, so a double booking is refused at the source rather than discovered later. Payment goes out to Midtrans as a deposit or the full amount, and the booking only becomes confirmed once it settles. Staff see the same day as a court-by-hour timetable, where they approve or reject requests, confirm transfers, and enter walk-ins; every one of those actions that changes data is written to an activity log the owner can read.`,
+    longdesc_id: `## Ringkasan
+Platform pemesanan lapangan olahraga: pelanggan menyewa lapangan per jam dan membayar online, sementara pemilik beserta stafnya menjalankan operasional harian dari sisi lain sistem yang sama.
+
+## Masalah yang Diselesaikan
+Pemesanan lapangan biasanya berjalan lewat pesan WhatsApp dan buku catatan, dan cara itu jebol dengan pola yang mudah ditebak — dua orang dijanjikan jam yang sama, uang muka yang tak tercatat, atau pelanggan tetap yang harus memesan ulang slot Selasa yang sama setiap minggu. Pemiliknya pun menutup bulan tanpa gambaran nyata lapangan mana yang benar-benar menghasilkan.
+
+## Fitur Utama
+- Grid ketersediaan per jam untuk tiap lapangan, dengan deteksi bentrok sebagai aturan intinya
+- Pembayaran online lewat Midtrans, sebagai uang muka atau lunas, ditambah QRIS dan transfer bank per venue
+- Booking berulang yang membangkitkan sesi mingguan sampai tanggal atau jumlah sesi tertentu
+- Pembayaran patungan sehingga satu booking bisa ditanggung beramai-ramai
+- Kode voucher berupa persen atau nominal, dengan syarat minimum, kuota, periode, dan cakupan per venue
+- Keanggotaan berdiskon, diajukan lewat web dan disetujui admin
+- Empat peran: pemilik, kasir, petugas lapangan, dan pelanggan, masing-masing dengan jangkauan berbeda
+- Pencatatan walk-in, pemblokiran slot, refund, rating dan ulasan, pengumuman, serta analitik pendapatan
+- Lokasi venue di peta, dan log aktivitas atas setiap aksi staf yang mengubah data
+
+## Tech Stack
+Backend: Laravel 13 di atas PHP 8.3 sebagai REST API, dengan Sanctum dan spatie/laravel-permission — 14 model dalam 33 migrasi. Frontend: React 19 dengan Vite, TypeScript, React Router 7, Tailwind CSS 4, Framer Motion, dan Leaflet untuk peta venue. Pembayaran berjalan melalui Midtrans.
+
+## Alur Kerja
+Pelanggan memilih venue, lapangan, dan jam dari grid ketersediaan; permintaan itu diperiksa terhadap booking yang sudah ada dan slot yang diblokir sebelum diterima, sehingga tabrakan jadwal ditolak sejak awal, bukan baru ketahuan belakangan. Pembayaran diteruskan ke Midtrans sebagai uang muka atau pelunasan, dan booking baru berstatus terkonfirmasi setelah dananya masuk. Staf melihat hari yang sama sebagai timetable lapangan kali jam, tempat mereka menyetujui atau menolak permintaan, mengonfirmasi transfer, dan mencatat walk-in; setiap aksi yang mengubah data ditulis ke log aktivitas yang bisa dibaca pemilik.`,
+    image: "/images/project3.jpg",
+    link: "https://drive.google.com/file/d/1NZy6iJaT1M8G1vLs6_tJVhWOvh_pRIpk/view?usp=sharing",
+    tags: ["Laravel", "React", "Midtrans"], category: "Booking"
   }
 ];
