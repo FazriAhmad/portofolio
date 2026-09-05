@@ -310,5 +310,53 @@ Rute publik dilayani satu controller publik yang membaca data terbit langsung da
     image: "/images/content-management-system.jpg",
     link: "https://drive.google.com/file/d/1pCrtUhzFPLMoXQruTIp9Kx-NEJMWSXBo/view?usp=sharing",
     tags: ["Laravel", "Blade", "PostgreSQL"], category: "Web App"
+  },
+  {
+    title_en: "wordpath", title_id: "wordpath",
+    description_en: "Gamified language learning with spaced repetition",
+    description_id: "Belajar bahasa ala game dengan sistem pengulangan terjadwal",
+    longdesc_en: `## Summary
+A gamified web app for learning Japanese and English, built around spaced repetition so a word comes back exactly when you are about to forget it.
+
+## Problem It Solves
+Vocabulary apps usually drill whatever comes next in a list, which spends your time on words you already know while the shaky ones quietly slip away. Reading a word is also only a quarter of knowing it — most tools never make you hear it, say it, or write it. And motivation drains fast when nothing shows the progress you are actually making.
+
+## Key Features
+- Four ways to practise the same card: multiple choice, listening, speaking, and writing
+- Scheduling driven by your own answers, rated again / hard / good / easy
+- Two languages, each with its own level system: JLPT N5–N1 for Japanese, CEFR A1–C2 for English
+- Japanese cards carry reading, on'yomi, kun'yomi, radical, and stroke count next to the meaning
+- Built-in decks plus decks you assemble yourself, favourites, and example sentences per card
+- A personalised session that pulls what is due and targets the tags you keep getting wrong
+- XP, daily streaks, and achievements, with an optional study reminder at a time you set
+
+## Tech Stack
+Next.js 16 with the App Router, React 19, and TypeScript. Prisma 7 over PostgreSQL for data, Auth.js (NextAuth v5) with bcrypt-hashed credentials for accounts, Tailwind CSS 4 and Lucide for the interface. Listening and speaking run entirely on the browser's Web Speech API — speech synthesis and speech recognition — so no external speech service is involved.
+
+## How It Works
+Every answer is rated on a four-point scale, and that rating feeds an SM-2 scheduler: a good answer stretches the interval by the card's ease factor, while a wrong one resets the interval to zero and lowers both the ease and your mastery, so the card returns the same day. Each review is also written to a log, which is what drives the streaks, the XP, and the pass that spots which tags you keep missing. Listening and speaking use the locale stored on each language, so a card is spoken and heard in the right voice.`,
+    longdesc_id: `## Ringkasan
+Aplikasi web belajar bahasa Jepang dan Inggris bergaya permainan, dibangun di atas sistem pengulangan terjadwal sehingga sebuah kata kembali muncul tepat ketika kamu hampir melupakannya.
+
+## Masalah yang Diselesaikan
+Aplikasi kosakata umumnya menguji apa pun yang berikutnya dalam daftar, sehingga waktumu habis pada kata yang sudah dikuasai sementara yang masih goyah diam-diam terlepas. Membaca sebuah kata juga baru seperempat dari menguasainya — kebanyakan aplikasi tidak pernah menuntutmu mendengarnya, mengucapkannya, atau menuliskannya. Dan motivasi cepat surut ketika tidak ada yang menunjukkan kemajuan yang sebenarnya sudah kamu capai.
+
+## Fitur Utama
+- Empat cara melatih kartu yang sama: pilihan ganda, menyimak, berbicara, dan menulis
+- Penjadwalan yang mengikuti jawabanmu sendiri, dinilai again / hard / good / easy
+- Dua bahasa dengan sistem tingkatannya masing-masing: JLPT N5–N1 untuk Jepang, CEFR A1–C2 untuk Inggris
+- Kartu Jepang memuat cara baca, on'yomi, kun'yomi, radikal, dan jumlah goresan di samping artinya
+- Deck bawaan sekaligus deck rakitanmu sendiri, favorit, serta contoh kalimat di tiap kartu
+- Sesi personal yang mengambil kartu yang jatuh tempo dan membidik tag yang sering kamu salah
+- XP, runtutan harian, dan pencapaian, dengan pengingat belajar opsional pada jam yang kamu tentukan
+
+## Tech Stack
+Next.js 16 dengan App Router, React 19, dan TypeScript. Prisma 7 di atas PostgreSQL untuk data, Auth.js (NextAuth v5) dengan kredensial ber-hash bcrypt untuk akun, Tailwind CSS 4 dan Lucide untuk antarmuka. Fitur menyimak dan berbicara berjalan sepenuhnya di Web Speech API bawaan browser — sintesis dan pengenalan suara — sehingga tidak melibatkan layanan suara pihak ketiga.
+
+## Alur Kerja
+Setiap jawaban dinilai dalam empat tingkat, dan penilaian itu memberi masukan ke penjadwal SM-2: jawaban benar memperpanjang interval sebesar faktor kemudahan kartu, sedangkan jawaban salah mengembalikan interval ke nol serta menurunkan faktor kemudahan dan tingkat penguasaanmu, sehingga kartu itu kembali di hari yang sama. Tiap ulasan juga dicatat ke log, dan catatan itulah yang menggerakkan runtutan harian, XP, serta proses yang mendeteksi tag mana yang sering kamu salah. Menyimak dan berbicara memakai locale yang tersimpan pada tiap bahasa, sehingga kartu diucapkan dan didengar dengan suara yang tepat.`,
+    image: "/images/project1.jpg",
+    link: "https://drive.google.com/file/d/1HRp15kdDE-uNZKMAPfYz8QaxQPjvpkBl/view?usp=sharing",
+    tags: ["Next.js", "TypeScript", "PostgreSQL"], category: "Education Tech"
   }
 ];
