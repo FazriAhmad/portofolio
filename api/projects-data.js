@@ -223,7 +223,7 @@ Next.js 16 dengan App Router dan React 19, Firebase Firestore untuk status ruang
 
 ## Alur Kerja
 Seorang pemain membuat ruang dan mendapat kode pendek yang dipakai pemain kedua untuk bergabung; kedua klien lalu berlangganan pada dokumen Firestore yang sama, sehingga setiap langkah langsung muncul di layar lawan. Ketika sebuah kata dikirim, klien memanggil API route internal yang menanyakannya ke kamus Jisho dan hanya menerima kata itu bila cocok persis dengan tulisan atau bacaannya, sekaligus mengembalikan artinya. Rantai berlanjut dari huruf terakhir sampai ada pemain yang gagal menjawab.`,
-    image: "/images/shiritorizen.png", link: "https://shiritori-zen.vercel.app/",
+    image: "/images/shiritori-zen.jpg", link: "https://shiritori-zen.vercel.app/",
     tags: ["Next.js", "React", "Firebase"], category: "Gaming"
   },
   {
@@ -405,7 +405,7 @@ Backend: Laravel 13 di atas PHP 8.3 sebagai REST API, dengan Sanctum untuk token
 
 ## Alur Kerja
 Klien React melakukan autentikasi ke API Laravel dan menerima token Sanctum; setiap permintaan berikutnya membawanya, lalu lapisan izin menentukan peran mana dari ketujuhnya yang boleh menyentuh tiap endpoint. Data yang sama tampil berbeda menurut peran — nilai yang diinput guru adalah nilai yang dibuka siswa, yang direkap wali kelas, dan yang dibaca orang tua. Seluruh 21 halaman membaca data asli dari API, bukan data contoh, dan aksi sensitif dicatat ke log audit begitu terjadi.`,
-    image: "/images/project2.jpg",
+    image: "/images/lms.jpg",
     link: "https://drive.google.com/file/d/1N2vCesdZIqqf8JhHmPKWq7v9nlmoQ44f/view?usp=sharing",
     tags: ["Laravel", "React", "TypeScript"], category: "Education Tech"
   },
@@ -457,7 +457,7 @@ Backend: Laravel 13 di atas PHP 8.3 sebagai REST API, dengan Sanctum dan spatie/
 
 ## Alur Kerja
 Pelanggan memilih venue, lapangan, dan jam dari grid ketersediaan; permintaan itu diperiksa terhadap booking yang sudah ada dan slot yang diblokir sebelum diterima, sehingga tabrakan jadwal ditolak sejak awal, bukan baru ketahuan belakangan. Pembayaran diteruskan ke Midtrans sebagai uang muka atau pelunasan, dan booking baru berstatus terkonfirmasi setelah dananya masuk. Staf melihat hari yang sama sebagai timetable lapangan kali jam, tempat mereka menyetujui atau menolak permintaan, mengonfirmasi transfer, dan mencatat walk-in; setiap aksi yang mengubah data ditulis ke log aktivitas yang bisa dibaca pemilik.`,
-    image: "/images/project3.jpg",
+    image: "/images/area-play.jpg",
     link: "https://drive.google.com/file/d/1NZy6iJaT1M8G1vLs6_tJVhWOvh_pRIpk/view?usp=sharing",
     tags: ["Laravel", "React", "Midtrans"], category: "Booking"
   }
