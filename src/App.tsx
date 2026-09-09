@@ -58,10 +58,13 @@ function LongDesc({ text }: { text: string }) {
 
 // Renders nothing at all when the list is empty, so a section the admin has not
 // filled in yet leaves no empty heading behind on the public page.
-function Timeline({ title, entries, icon: Icon }: {
+function Timeline({ title, entries, icon: Icon, grid = false }: {
   title: string;
   entries: TimelineEntry[];
   icon: typeof GraduationCap;
+  /** Lay the entries out side by side instead of stacking them down one rail —
+   *  worth it for a run of certificates, which are short and carry an image. */
+  grid?: boolean;
 }) {
   // A row added in the admin panel and then left blank must not surface as an
   // empty heading with a floating marker, so blank rows are dropped here and the
@@ -76,9 +79,15 @@ function Timeline({ title, entries, icon: Icon }: {
         <Icon size={16} className="text-teal-600" />
         <div className="uppercase tracking-[3px] text-teal-600 text-xs font-medium">{title}</div>
       </div>
-      <div className="border-l border-zinc-200 dark:border-zinc-800 pl-8 space-y-7">
+      {/* In grid mode each entry carries its own rail segment, since a single
+          shared rule only makes sense down a column. */}
+      <div className={grid
+        ? 'grid sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8 items-start'
+        : 'border-l border-zinc-200 dark:border-zinc-800 pl-8 space-y-7'}>
         {visible.map((e, i) => (
-          <div key={i} className="relative">
+          <div key={i} className={grid
+            ? 'relative border-l border-zinc-200 dark:border-zinc-800 pl-8'
+            : 'relative'}>
             {/* The marker always carries the section icon so the rail stays even.
                 The uploaded image gets its own space below instead: at marker size
                 a certificate or award photo was 28px across and unreadable. */}
@@ -95,8 +104,12 @@ function Timeline({ title, entries, icon: Icon }: {
               </div>
             )}
             {e.desc && <p className="text-zinc-600 dark:text-zinc-400 mt-2 leading-relaxed">{e.desc}</p>}
+            {/* No loading="lazy" here: these are data: URLs already sitting in the
+                payload, so it defers nothing — and an image with no intrinsic size
+                yet never comes close enough to the viewport to trigger, leaving it
+                stuck at 0x0 forever. */}
             {e.image && (
-              <img src={e.image} alt={e.title || ''} loading="lazy" decoding="async"
+              <img src={e.image} alt={e.title || ''} decoding="async"
                 className="mt-3 max-h-56 w-auto max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800 object-contain" />
             )}
           </div>
@@ -681,14 +694,14 @@ function Portfolio() {
           </div>
         </div>
 
-        {/* All three sit in one row so achievements reads as a column beside the
-            other two rather than a wide block underneath. Each block hides itself
-            while empty, so a missing one simply leaves the row narrower. */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-x-10 mt-16 items-start">
+        {/* Education and career stay paired; achievements takes the full width
+            below and spreads its own entries across it. Each block hides itself
+            while empty. */}
+        <div className="grid md:grid-cols-2 gap-x-16 mt-16 items-start">
           <Timeline title={t.about.education} entries={timelineFor(content.education)} icon={GraduationCap} />
           <Timeline title={t.about.career} entries={timelineFor(content.career)} icon={Briefcase} />
-          <Timeline title={t.about.achievements} entries={timelineFor(content.achievements)} icon={Award} />
         </div>
+        <Timeline title={t.about.achievements} entries={timelineFor(content.achievements)} icon={Award} grid />
       </section>
 
       {/* PROJECTS */}
