@@ -79,12 +79,11 @@ function Timeline({ title, entries, icon: Icon }: {
       <div className="border-l border-zinc-200 dark:border-zinc-800 pl-8 space-y-7">
         {visible.map((e, i) => (
           <div key={i} className="relative">
-            {/* Marker sits on the rule: the entry's own logo when it has one,
-                otherwise the section icon, so mixed rows still line up. */}
-            <span className="absolute -left-[46px] -top-0.5 w-7 h-7 flex items-center justify-center rounded-full overflow-hidden bg-white dark:bg-zinc-950 ring-1 ring-zinc-200 dark:ring-zinc-800">
-              {e.image
-                ? <img src={e.image} alt="" className="w-full h-full object-contain p-0.5" decoding="async" />
-                : <Icon size={15} className="text-teal-600" />}
+            {/* The marker always carries the section icon so the rail stays even.
+                The uploaded image gets its own space below instead: at marker size
+                a certificate or award photo was 28px across and unreadable. */}
+            <span className="absolute -left-[46px] -top-0.5 w-7 h-7 flex items-center justify-center rounded-full bg-white dark:bg-zinc-950 ring-1 ring-zinc-200 dark:ring-zinc-800">
+              <Icon size={15} className="text-teal-600" />
             </span>
             {e.period && <div className="text-sm text-zinc-500 mb-1">{e.period}</div>}
             {e.title && <div className="text-xl font-semibold tracking-tight">{e.title}</div>}
@@ -96,6 +95,10 @@ function Timeline({ title, entries, icon: Icon }: {
               </div>
             )}
             {e.desc && <p className="text-zinc-600 dark:text-zinc-400 mt-2 leading-relaxed">{e.desc}</p>}
+            {e.image && (
+              <img src={e.image} alt={e.title || ''} loading="lazy" decoding="async"
+                className="mt-3 max-h-56 w-auto max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800 object-contain" />
+            )}
           </div>
         ))}
       </div>
