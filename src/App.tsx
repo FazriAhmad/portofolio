@@ -184,8 +184,22 @@ const emptyProjectForm = { title: '', description: '', image: '', link: '', tags
 
 // Resizes/compresses an uploaded image client-side and returns a data: URL,
 // so it stays well under Vercel's request body size limit and fits comfortably in a TEXT column.
-// mime is worth overriding for logos: JPEG has no alpha channel, so a
-// transparent PNG logo would gain a solid box that shows up against dark mode.
+//
+// mime 'auto' picks the format from the pixels rather than the file extension.
+// Trusting the extension was a mistake: a scanned certificate saved as PNG is a
+// photograph, and keeping it as PNG made a single 480px image 164KB where JPEG
+// takes about 25KB. Only images that genuinely use their alpha channel — logos —
+// need PNG, and for those JPEG would paste a solid box behind the transparency.
+function isFullyOpaque(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  try {
+    const { data } = ctx.getImageData(0, 0, w, h);
+    for (let i = 3; i < data.length; i += 4) if (data[i] < 250) return false;
+    return true;
+  } catch {
+    return false; // tainted canvas: keep PNG, which is always safe to display
+  }
+}
+
 function fileToCompressedDataUrl(file: File, maxDim = 1200, quality = 0.82, mime = 'image/jpeg'): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -203,7 +217,10 @@ function fileToCompressedDataUrl(file: File, maxDim = 1200, quality = 0.82, mime
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject(new Error('canvas not supported'));
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL(mime, quality));
+        const chosen = mime === 'auto'
+          ? (isFullyOpaque(ctx, w, h) ? 'image/jpeg' : 'image/png')
+          : mime;
+        resolve(canvas.toDataURL(chosen, quality));
       };
       img.src = reader.result as string;
     };
@@ -244,6 +261,20 @@ function Portfolio() {
   const [content, setContent] = useState<SiteContent>(defaultContent);
 
   const t = translations[lang];
+
+  // Rows whose every field is blank are placeholders the admin added and has not
+  // filled in; they must not count as content anywhere.
+  const filled = (list: TimelineEntry[]) =>
+    (list ?? []).filter(e => [e.period, e.title, e.org, e.location, e.desc, e.image].some(v => v && v.trim()));
+
+  // These lists are per-language, but in practice one language gets filled and
+  // the other is left empty — a certificate's title and issuer rarely differ.
+  // Without a fallback the whole section vanishes on the other language, which
+  // reads as a bug rather than as missing translation.
+  const timelineFor = (both: { en: TimelineEntry[]; id: TimelineEntry[] }) => {
+    const own = filled(both?.[lang]);
+    return own.length ? own : filled(both?.[lang === 'en' ? 'id' : 'en']);
+  };
 
   // Projects now come from the Postgres-backed API
   useEffect(() => {
@@ -650,13 +681,14 @@ function Portfolio() {
           </div>
         </div>
 
-        {/* Each block hides itself while empty, so the section keeps its current
-            shape until the admin actually fills these in. */}
-        <div className="grid md:grid-cols-2 gap-x-16 mt-16">
-          <Timeline title={t.about.education} entries={content.education[lang]} icon={GraduationCap} />
-          <Timeline title={t.about.career} entries={content.career[lang]} icon={Briefcase} />
+        {/* All three sit in one row so achievements reads as a column beside the
+            other two rather than a wide block underneath. Each block hides itself
+            while empty, so a missing one simply leaves the row narrower. */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-x-10 mt-16 items-start">
+          <Timeline title={t.about.education} entries={timelineFor(content.education)} icon={GraduationCap} />
+          <Timeline title={t.about.career} entries={timelineFor(content.career)} icon={Briefcase} />
+          <Timeline title={t.about.achievements} entries={timelineFor(content.achievements)} icon={Award} />
         </div>
-        <Timeline title={t.about.achievements} entries={content.achievements[lang]} icon={Award} />
       </section>
 
       {/* PROJECTS */}
