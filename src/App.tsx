@@ -244,6 +244,30 @@ function fileToCompressedDataUrl(file: File, maxDim = 1200, quality = 0.82, mime
   });
 }
 
+// Every image upload in the admin funnels through here, so storing the bytes
+// server-side and handing back a URL is all it takes to keep them out of the
+// /api/projects and /api/content payloads. On failure the data URL is returned
+// anyway — losing the admin's upload would be worse than a heavy payload — but
+// it says so, because that is exactly the case that quietly slowed the site
+// down before.
+async function compressAndUpload(file: File, maxDim?: number, quality?: number, mime?: string): Promise<string> {
+  const dataUrl = await fileToCompressedDataUrl(file, maxDim, quality, mime);
+  try {
+    const res = await adminFetch(`${API_BASE}/api/images`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl })
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const { url } = await res.json();
+    return url;
+  } catch (err) {
+    console.error('image upload failed', err);
+    window.alert('Upload gambar ke server gagal — gambar disimpan menempel di data, yang membuat halaman lebih berat. Coba unggah ulang.');
+    return dataUrl;
+  }
+}
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -862,7 +886,7 @@ function Portfolio() {
             deleteCv={deleteCv}
             markMessageRead={markMessageRead}
             deleteMessage={deleteMessage}
-            compressImage={fileToCompressedDataUrl}
+            compressImage={compressAndUpload}
             onClose={() => setShowAdmin(false)}
             onLogout={logoutAdmin}
           />

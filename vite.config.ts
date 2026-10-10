@@ -21,6 +21,10 @@ export default defineConfig(async ({ mode }) => {
     plugins,
     envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
     define: processEnvDefines,
+    // Uploaded images are stored as relative /api/images/<id> URLs, which resolve
+    // on their own in production because the API shares the origin. In dev the
+    // API is a separate port, so without this proxy every uploaded image 404s.
+    server: { proxy: { '/api': 'http://localhost:4000' } },
     build: {
       rollupOptions: {
         output: {

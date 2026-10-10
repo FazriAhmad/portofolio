@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import pg from 'pg';
+import crypto from 'node:crypto';
 import { seedProjects } from './projects-data.js';
 
 const isLocal = /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL || '');
@@ -23,6 +24,7 @@ const PUBLIC_ROUTES = [
   ['GET', /^\/api\/content$/],
   ['GET', /^\/api\/cv$/],
   ['GET', /^\/api\/cv\/(en|id)$/],
+  ['GET', /^\/api\/images\/[a-f0-9]{32}$/],
   ['POST', /^\/api\/projects\/\d+\/view$/],
   ['POST', /^\/api\/messages$/],          // the contact form
 ];
@@ -80,6 +82,18 @@ function init() {
           lang TEXT PRIMARY KEY CHECK (lang IN ('en', 'id')),
           filename TEXT,
           data TEXT
+        )
+      `);
+      // Uploaded images used to be inlined as data: URLs in the rows that
+      // referenced them, which put them inside every /api/projects and
+      // /api/content response — 263KB of a 314KB payload at one point. Stored as
+      // bytes here they are fetched like any other image, once, and then cached.
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS images (
+          id TEXT PRIMARY KEY,
+          mime TEXT NOT NULL,
+          bytes BYTEA NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
         )
       `);
       await pool.query(`
@@ -244,6 +258,27 @@ app.delete('/api/cv/:lang', async (req, res) => {
   if (!['en', 'id'].includes(req.params.lang)) return res.status(400).json({ error: 'invalid lang' });
   await pool.query('DELETE FROM cv_file WHERE lang = $1', [req.params.lang]);
   res.status(204).end();
+});
+
+// The id is random and an image is never rewritten under the same one, so the
+// bytes at a URL can be treated as permanent — hence the immutable year.
+app.get('/api/images/:id', async (req, res) => {
+  const { rows } = await pool.query('SELECT mime, bytes FROM images WHERE id = $1', [req.params.id]);
+  if (!rows[0]) return res.status(404).end();
+  res.set('Content-Type', rows[0].mime);
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(rows[0].bytes);
+});
+
+app.post('/api/images', async (req, res) => {
+  const m = String(req.body.dataUrl ?? '').match(/^data:(image\/[\w.+-]+);base64,(.+)$/s);
+  if (!m) return res.status(400).json({ error: 'dataUrl must be a base64 image' });
+  const bytes = Buffer.from(m[2], 'base64');
+  if (!bytes.length) return res.status(400).json({ error: 'empty image' });
+  if (bytes.length > 4 * 1024 * 1024) return res.status(413).json({ error: 'image larger than 4MB' });
+  const id = crypto.randomBytes(16).toString('hex');
+  await pool.query('INSERT INTO images (id, mime, bytes) VALUES ($1,$2,$3)', [id, m[1], bytes]);
+  res.status(201).json({ url: `/api/images/${id}` });
 });
 
 const toMessage = (row) => ({
