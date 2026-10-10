@@ -270,6 +270,20 @@ app.get('/api/images/:id', async (req, res) => {
   res.send(rows[0].bytes);
 });
 
+// Admin-only, and deliberately without the bytes: this exists so the cleanup
+// script can tell which stored images nothing references any more.
+app.get('/api/images', async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT id, mime, octet_length(bytes) AS size, created_at FROM images ORDER BY created_at'
+  );
+  res.json(rows);
+});
+
+app.delete('/api/images/:id', async (req, res) => {
+  await pool.query('DELETE FROM images WHERE id = $1', [req.params.id]);
+  res.status(204).end();
+});
+
 app.post('/api/images', async (req, res) => {
   const m = String(req.body.dataUrl ?? '').match(/^data:(image\/[\w.+-]+);base64,(.+)$/s);
   if (!m) return res.status(400).json({ error: 'dataUrl must be a base64 image' });
