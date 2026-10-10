@@ -116,14 +116,31 @@ function CommaList({ value, onChange, as = 'input', rows, className, placeholder
 
 // One editor drives education, career, and achievements; they differ only by
 // which slice of content they write back to.
-function TimelineEditor({ entries, onChange, compressImage, Icon }: {
+function TimelineEditor({ entries, onChange, compressImage, Icon, collapsible = false }: {
   entries: TimelineEntry[];
   onChange: (next: TimelineEntry[]) => void;
   compressImage: AdminProps['compressImage'];
   Icon: typeof GraduationCap;
+  /** One summary row per entry with a single editor open at a time. Worth it for
+   *  a long list (certificates); a lone entry would only gain an extra click. */
+  collapsible?: boolean;
 }) {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  // Opening a row collapses whichever was open, which moves the page under the
+  // pointer, so the opened row is brought back to the top of the view.
+  React.useEffect(() => {
+    if (openIdx == null) return;
+    const raf = requestAnimationFrame(() =>
+      listRef.current?.querySelector(`[data-entry="${openIdx}"]`)
+        ?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    );
+    return () => cancelAnimationFrame(raf);
+  }, [openIdx]);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={listRef}>
       {!entries.length && (
         <div className={`${card} p-8 text-center text-sm text-white/35`}>
           Nothing here yet — this section stays hidden on the public page.
@@ -132,8 +149,28 @@ function TimelineEditor({ entries, onChange, compressImage, Icon }: {
       {entries.map((entry, i) => {
         const write = (patch: Partial<TimelineEntry>) =>
           onChange(entries.map((e, j) => (j === i ? { ...e, ...patch } : e)));
+        const open = !collapsible || openIdx === i;
         return (
-          <div key={i} className={`${card} p-5`}>
+          <div key={i} data-entry={i} className={`${card} ${collapsible ? 'overflow-hidden' : 'p-5'} ${collapsible && open ? 'border-white/25' : ''}`}>
+            {collapsible && (
+              <button type="button" onClick={() => setOpenIdx(open ? null : i)} aria-expanded={open}
+                className="w-full flex gap-3 items-center p-3 text-left hover:bg-white/[0.03] transition">
+                <span className="shrink-0 w-10 h-10 rounded-lg border border-white/10 flex items-center justify-center overflow-hidden bg-black/20">
+                  {entry.image
+                    ? <img src={entry.image} alt="" className="w-full h-full object-contain" />
+                    : <Icon size={16} className="text-white/40" />}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium truncate">{entry.title || '(untitled)'}</span>
+                  <span className="block text-xs text-white/35 truncate">
+                    {[entry.org, entry.period].filter(Boolean).join(' · ') || 'no details yet'}
+                  </span>
+                </span>
+                <ChevronDown size={16} className={`shrink-0 text-white/40 transition-transform ${open ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+            {open && (
+            <div className={collapsible ? 'p-5 pt-3 border-t border-white/10' : ''}>
             <div className="flex gap-3 items-center mb-3">
               <span className="shrink-0 w-14 h-14 rounded-lg border border-white/10 flex items-center justify-center overflow-hidden bg-black/20">
                 {entry.image
@@ -169,15 +206,19 @@ function TimelineEditor({ entries, onChange, compressImage, Icon }: {
             </div>
             <div className="flex gap-2">
               <textarea value={entry.desc} onChange={e => write({ desc: e.target.value })} rows={2} className={field} placeholder="Description (optional)" />
-              <button onClick={() => onChange(entries.filter((_, j) => j !== i))}
+              <button onClick={() => { setOpenIdx(null); onChange(entries.filter((_, j) => j !== i)); }}
                 className="shrink-0 px-3 border border-white/10 rounded-lg text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition">
                 <Trash2 size={15} />
               </button>
             </div>
+            </div>
+            )}
           </div>
         );
       })}
-      <button onClick={() => onChange([...entries, { ...emptyEntry }])}
+      {/* The new entry opens straight away, so "Add" lands you in its fields
+          instead of leaving a collapsed blank row to hunt for. */}
+      <button onClick={() => { setOpenIdx(entries.length); onChange([...entries, { ...emptyEntry }]); }}
         className="w-full py-3 rounded-xl border border-dashed border-white/15 text-sm text-white/50 hover:text-white hover:border-white/30 transition">
         + Add entry
       </button>
@@ -217,6 +258,7 @@ export default function Admin(p: AdminProps) {
       onChange={next => p.updateTimeline(f, next)}
       compressImage={p.compressImage}
       Icon={Icon}
+      collapsible={f === 'achievements'}
     />
   );
 
