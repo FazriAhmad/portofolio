@@ -119,6 +119,9 @@ function init() {
       // Added after the table shipped, so CREATE TABLE IF NOT EXISTS above would
       // never introduce them on an existing deployment — hence the explicit ALTERs.
       // Each holds a list of { period, title, org, desc }, one column per language.
+      // Same story as the lists below: added after the table shipped. Empty by
+      // default, and the site simply omits the link until one is filled in.
+      await pool.query(`ALTER TABLE site_content ADD COLUMN IF NOT EXISTS github TEXT DEFAULT ''`);
       for (const col of ['education', 'career', 'achievements']) {
         for (const lang of ['en', 'id']) {
           await pool.query(
@@ -379,6 +382,7 @@ const toContent = (row) => ({
   whatsapp: row.whatsapp,
   email: row.email,
   linkedin: row.linkedin,
+  github: row.github ?? '',
   photo: row.photo,
   education: { en: row.education_en ?? [], id: row.education_id ?? [] },
   career: { en: row.career_en ?? [], id: row.career_id ?? [] },
@@ -398,7 +402,7 @@ const CONTENT_LANG_FIELDS = {
 const CONTENT_JSON_FIELDS = new Set(['education', 'career', 'achievements']);
 const CONTENT_PLAIN_COLUMNS = {
   heroTitle: 'hero_title', heroSubtitle: 'hero_subtitle',
-  skills: 'skills', whatsapp: 'whatsapp', email: 'email', linkedin: 'linkedin', photo: 'photo'
+  skills: 'skills', whatsapp: 'whatsapp', email: 'email', linkedin: 'linkedin', github: 'github', photo: 'photo'
 };
 
 app.patch('/api/content', async (req, res) => {

@@ -37,6 +37,8 @@ export interface SiteContent {
   whatsapp: string;
   email: string;
   linkedin: string;
+  /** Empty means the contact section shows no GitHub button. */
+  github: string;
   photo: string;
   education: Bilingual<TimelineEntry[]>;
   career: Bilingual<TimelineEntry[]>;

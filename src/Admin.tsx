@@ -20,7 +20,7 @@ export interface AdminProps {
   newProject: { title: string; description: string; image: string; link: string; tags: string; category: string };
   setNewProject: React.Dispatch<React.SetStateAction<AdminProps['newProject']>>;
   addProject: (e: React.FormEvent) => void;
-  updateContent: (field: 'heroTitle' | 'heroSubtitle' | 'whatsapp' | 'email' | 'linkedin' | 'photo', value: string) => void;
+  updateContent: (field: 'heroTitle' | 'heroSubtitle' | 'whatsapp' | 'email' | 'linkedin' | 'github' | 'photo', value: string) => void;
   updateAbout: (lang: 'en' | 'id', value: string) => void;
   updateSkills: (raw: string) => void;
   updateTimeline: (field: TimelineField, entries: TimelineEntry[]) => void;
@@ -376,10 +376,11 @@ export default function Admin(p: AdminProps) {
               </div>
 
               <Eyebrow>Contact</Eyebrow>
-              <div className={`${card} p-5 grid grid-cols-1 md:grid-cols-3 gap-2 mb-8`}>
+              <div className={`${card} p-5 grid grid-cols-1 md:grid-cols-2 gap-2 mb-8`}>
                 <input value={p.content.whatsapp} onChange={e => p.updateContent('whatsapp', e.target.value)} className={field} placeholder="WhatsApp (62812...)" />
                 <input value={p.content.email} onChange={e => p.updateContent('email', e.target.value)} className={field} placeholder="Email" />
                 <input value={p.content.linkedin} onChange={e => p.updateContent('linkedin', e.target.value)} className={field} placeholder="LinkedIn URL" />
+                <input value={p.content.github} onChange={e => p.updateContent('github', e.target.value)} className={field} placeholder="GitHub URL (https://github.com/…)" />
               </div>
             </>
           )}

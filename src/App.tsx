@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Moon, Sun, Globe, Download,
   Menu, X, ExternalLink, Mail, Phone,
-  GraduationCap, Briefcase, Award, MapPin
+  GraduationCap, Briefcase, Award, MapPin, Github
 } from 'lucide-react';
 
 import type { Project, TimelineEntry, SiteContent, Message, TimelineField } from './types';
@@ -177,6 +177,7 @@ const defaultContent: SiteContent = {
   whatsapp: '6281284020220',
   email: 'fazriachmad898@gmail.com',
   linkedin: 'https://linkedin.com/in/fazriahmad',
+  github: '',
   photo: '/images/profile.jpg',
   education: { en: [], id: [] },
   career: { en: [], id: [] },
@@ -345,7 +346,7 @@ function Portfolio() {
   }, []);
 
   // Site content (hero, about, skills, contact, photo) — persisted in Postgres via the API
-  const updateContent = (field: 'heroTitle' | 'heroSubtitle' | 'whatsapp' | 'email' | 'linkedin' | 'photo', value: string) => {
+  const updateContent = (field: 'heroTitle' | 'heroSubtitle' | 'whatsapp' | 'email' | 'linkedin' | 'github' | 'photo', value: string) => {
     setContent(prev => ({ ...prev, [field]: value }));
     adminFetch(`${API_BASE}/api/content`, {
       method: 'PATCH',
@@ -796,6 +797,12 @@ function Portfolio() {
           <a href={content.linkedin} target="_blank" rel="noopener noreferrer" className="flex-1 border-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition py-5 rounded-2xl text-lg font-medium flex justify-center items-center gap-2">
             <ExternalLink size={19} /> LinkedIn
           </a>
+          {/* Omitted until a URL is set, so an unfilled field leaves no dead button. */}
+          {/^https?:\/\//.test(content.github) && (
+            <a href={content.github} target="_blank" rel="noopener noreferrer" className="flex-1 border-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition py-5 rounded-2xl text-lg font-medium flex justify-center items-center gap-2">
+              <Github size={19} /> GitHub
+            </a>
+          )}
         </div>
 
         {/* Feeds the dashboard inbox. Kept below the direct links, which stay the
