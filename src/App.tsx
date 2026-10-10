@@ -19,8 +19,11 @@ const Admin = React.lazy(() => import('./Admin'));
 function LongDesc({ text }: { text: string }) {
   return (
     <div className="mb-9">
-      {text.split(/\n(?=## )/).map((block, i) => {
-        const match = block.match(/^## (.+?)(?:\n([\s\S]*))?$/);
+      {/* One to three hashes, space optional. "##Ringkasan" and "# Alur Kerja"
+          are easy slips in the admin textarea, and silently dropping the whole
+          section over a missing space is a worse outcome than being lenient. */}
+      {text.split(/\n(?=#{1,3}\s*\S)/).map((block, i) => {
+        const match = block.match(/^#{1,3}\s*(.+?)(?:\n([\s\S]*))?$/);
         if (!match) {
           return <p key={i} className="text-2xl leading-tight text-zinc-600 dark:text-zinc-400">{block.trim()}</p>;
         }
@@ -272,6 +275,9 @@ function Portfolio() {
     en: { filename: null }, id: { filename: null }
   });
   const [content, setContent] = useState<SiteContent>(defaultContent);
+  // The default photo is the stale bundled one; showing it before /api/content
+  // answers makes the old picture flash and then swap to the real one.
+  const [contentLoaded, setContentLoaded] = useState(false);
 
   const t = translations[lang];
 
@@ -310,7 +316,8 @@ function Portfolio() {
     fetch(`${API_BASE}/api/content`)
       .then(r => r.json())
       .then(c => setContent({ ...defaultContent, ...c }))
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setContentLoaded(true));
   }, []);
 
   // Site content (hero, about, skills, contact, photo) — persisted in Postgres via the API
@@ -624,7 +631,7 @@ function Portfolio() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-20">
           <div className="flex items-center gap-3">
-            <div className="font-semibold text-2xl tracking-tighter">{content.heroTitle}</div>
+            <div className={`font-semibold text-2xl tracking-tighter ${contentLoaded ? '' : 'invisible'}`}>{content.heroTitle}</div>
           </div>
 
           {/* Desktop Nav */}
@@ -666,8 +673,8 @@ function Portfolio() {
       <section id="home" className="pt-20 min-h-[100dvh] flex items-center relative bg-zinc-950 text-white overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 pt-12 pb-24 relative z-10 w-full grid md:grid-cols-[1fr_auto] items-center gap-12">
           <div className="max-w-3xl">
-            <h1 className="text-6xl md:text-8xl font-semibold tracking-[-4.4px] leading-none mb-6">{content.heroTitle}</h1>
-            <p className="text-3xl tracking-tight text-zinc-400 mb-12">{content.heroSubtitle}</p>
+            <h1 className={`text-6xl md:text-8xl font-semibold tracking-[-4.4px] leading-none mb-6 ${contentLoaded ? '' : 'invisible'}`}>{content.heroTitle}</h1>
+            <p className={`text-3xl tracking-tight text-zinc-400 mb-12 ${contentLoaded ? '' : 'invisible'}`}>{content.heroSubtitle}</p>
 
             <div className="flex flex-wrap gap-4">
               <button onClick={() => scrollToSection('projects')} className="px-10 py-4 bg-white text-black rounded-full font-medium hover:bg-zinc-200 transition flex items-center gap-3 text-lg">
@@ -678,7 +685,11 @@ function Portfolio() {
               </button>
             </div>
           </div>
-          <img src={content.photo} alt={content.heroTitle} className="w-56 h-56 md:w-80 md:h-80 rounded-full object-cover object-top border-4 border-white/20 justify-self-center md:justify-self-end" />
+          {contentLoaded ? (
+            <img src={content.photo} alt={content.heroTitle} className="w-56 h-56 md:w-80 md:h-80 rounded-full object-cover object-top border-4 border-white/20 justify-self-center md:justify-self-end" />
+          ) : (
+            <div className="w-56 h-56 md:w-80 md:h-80 rounded-full border-4 border-white/20 bg-white/10 justify-self-center md:justify-self-end" />
+          )}
         </div>
         <div className="absolute bottom-12 right-8 text-xs text-white/50 tracking-[4px] hidden lg:block">SCROLL TO EXPLORE ↓</div>
       </section>
@@ -689,7 +700,7 @@ function Portfolio() {
           <div>
             <h2 className="text-6xl font-semibold tracking-tighter mb-8">{t.about.title}</h2>
           </div>
-          <div className="text-xl text-zinc-600 dark:text-zinc-400 leading-relaxed">
+          <div className={`text-xl text-zinc-600 dark:text-zinc-400 leading-relaxed ${contentLoaded ? '' : 'invisible'}`}>
             {content.about[lang]}
           </div>
         </div>
@@ -740,7 +751,7 @@ function Portfolio() {
       <section id="skills" className="bg-zinc-900 text-white py-24">
         <div className="max-w-5xl mx-auto px-6">
           <h2 className="text-6xl tracking-[-2.6px] font-semibold mb-16">{t.skills.title}</h2>
-          <div className="flex flex-wrap gap-3">
+          <div className={`flex flex-wrap gap-3 ${contentLoaded ? '' : 'invisible'}`}>
             {content.skills.map((skill, i) => (
               <div key={i} className="px-8 py-4 rounded-2xl border border-white/20 text-lg hover:border-teal-500 transition-colors">{skill}</div>
             ))}
