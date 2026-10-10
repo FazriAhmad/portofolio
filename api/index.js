@@ -204,11 +204,18 @@ app.patch('/api/projects/:id', async (req, res) => {
     return res.status(400).json({ error: 'invalid field' });
   }
 
+  // Read the outgoing image before overwriting it, so the bytes it leaves
+  // behind can be released in the same request.
+  const before = column === 'image'
+    ? (await pool.query('SELECT image FROM projects WHERE id = $1', [req.params.id])).rows[0]?.image
+    : null;
+
   const { rows } = await pool.query(
     `UPDATE projects SET ${column} = $1 WHERE id = $2 RETURNING *`,
     [val, req.params.id]
   );
   if (!rows[0]) return res.status(404).end();
+  await dropDetachedImages(imageIdsIn(before));
   res.json(toProject(rows[0]));
 });
 
@@ -222,7 +229,8 @@ app.post('/api/projects/:id/view', async (req, res) => {
 });
 
 app.delete('/api/projects/:id', async (req, res) => {
-  await pool.query('DELETE FROM projects WHERE id = $1', [req.params.id]);
+  const { rows } = await pool.query('DELETE FROM projects WHERE id = $1 RETURNING image', [req.params.id]);
+  await dropDetachedImages(imageIdsIn(rows[0]?.image));
   res.status(204).end();
 });
 
@@ -269,6 +277,31 @@ app.get('/api/images/:id', async (req, res) => {
   res.set('Cache-Control', 'public, max-age=31536000, immutable');
   res.send(rows[0].bytes);
 });
+
+const IMAGE_ID_IN_TEXT = /\/api\/images\/([a-f0-9]{32})/g;
+const imageIdsIn = (value) =>
+  new Set([...JSON.stringify(value ?? null).matchAll(IMAGE_ID_IN_TEXT)].map(m => m[1]));
+
+// Called with the image ids a row pointed at *before* it was written. Each one
+// is dropped only once nothing anywhere still points at it — the same picture is
+// often reused, most obviously across the two language lists, so "this row let
+// go of it" is not on its own a reason to delete the bytes.
+//
+// Only ids that were already attached reach this, so there is no risk of
+// catching an upload that has not been saved to its entry yet; that case is what
+// the age guard in scripts/clean-unused-images.js is for.
+async function dropDetachedImages(previousIds) {
+  if (!previousIds.size) return [];
+  const [projects, content] = await Promise.all([
+    pool.query('SELECT image FROM projects'),
+    pool.query(`SELECT photo, education_en, education_id, career_en, career_id,
+                       achievements_en, achievements_id FROM site_content WHERE id = 1`)
+  ]);
+  const stillUsed = imageIdsIn([projects.rows, content.rows]);
+  const detached = [...previousIds].filter(id => !stillUsed.has(id));
+  if (detached.length) await pool.query('DELETE FROM images WHERE id = ANY($1)', [detached]);
+  return detached;
+}
 
 // Admin-only, and deliberately without the bytes: this exists so the cleanup
 // script can tell which stored images nothing references any more.
@@ -387,10 +420,19 @@ app.patch('/api/content', async (req, res) => {
     return res.status(400).json({ error: 'invalid field' });
   }
 
+  // photo holds one image; the timeline columns hold a list that may hold
+  // several. Both are read before the overwrite so whatever drops out of them
+  // can be released in the same request.
+  const carriesImages = column === 'photo' || CONTENT_JSON_FIELDS.has(field);
+  const before = carriesImages
+    ? (await pool.query(`SELECT ${column} AS v FROM site_content WHERE id = 1`)).rows[0]?.v
+    : null;
+
   const { rows } = await pool.query(
     `UPDATE site_content SET ${column} = $1${cast} WHERE id = 1 RETURNING *`,
     [val]
   );
+  await dropDetachedImages(imageIdsIn(before));
   res.json(toContent(rows[0]));
 });
 
