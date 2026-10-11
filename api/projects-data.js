@@ -460,5 +460,59 @@ Pelanggan memilih venue, lapangan, dan jam dari grid ketersediaan; permintaan it
     image: "/images/area-play.jpg",
     link: "https://drive.google.com/file/d/1NZy6iJaT1M8G1vLs6_tJVhWOvh_pRIpk/view?usp=sharing",
     tags: ["Laravel", "React", "Midtrans"], category: "Booking"
+  },
+  {
+    title_en: "VeloxPay", title_id: "VeloxPay",
+    description_en: "Digital payroll platform with two-person approval and payment confirmation",
+    description_id: "Platform payroll digital dengan persetujuan dua orang dan konfirmasi pembayaran",
+    longdesc_en: `## Summary
+A digital payroll platform for the HR and finance team of a small or mid-sized Indonesian company. It calculates each payslip, takes it through a two-person approval, issues it as a PDF by email, and then asks the employee to confirm the money arrived. It is deliberately not a payment system: salaries are still transferred through the company's own bank, and staff only record the transfer reference afterwards. It is a working prototype with a real backend and 84 tests, not yet deployed; the payroll scheduling screen is a settings page only, and nothing runs on a schedule yet.
+
+## Problem It Solves
+Payroll in a spreadsheet means income tax and BPJS worked out by hand every month, where one wrong cell changes someone's take-home pay, and the same person can prepare, approve, and pay a slip with nobody else seeing it. There is no record of who approved what, no way for an employee to say the money never arrived, and bank details sit in plain documents. One system makes the calculation repeatable, splits preparing from approving, and keeps both the approval and the payment confirmation on record.
+
+## Key Features
+- Four roles: admin, finance who prepares slips, approver who approves and marks them paid, and employee who sees only their own data; an optional rule stops the person who created a slip from approving it
+- Employee records with tax status (PTKP) and bank details, plus salary components that are fixed or a percentage, as allowances or deductions
+- Employees submit their own monthly attendance and overtime by picking a status for each day; an approver or admin accepts it, and only then does it reach payroll, where it fills in overtime on the next slip
+- PPh 21, BPJS Kesehatan, JHT and JP, and THR calculated on the server from statutory rates; PPh 21 is an estimate until the official TER tables are added
+- An approval flow of Draft, Pending, Approved, then Paid, where Paid is final; marking a slip paid records a transfer reference for that slip
+- Payment confirmation: the employee confirms the salary arrived or reports that it did not, and staff answer the report before the employee confirms again
+- A notification log of everything waiting for someone, such as a slip to approve, a slip ready to pay, an attendance request, or a reported payment, mailed when a mail server is configured and honestly marked skipped when it is not; employees only see mail addressed to them
+- A PDF payslip generated on the server and emailed when a slip is marked paid
+- An audit log of every action, protected at the database level against edits and deletes, and bank account numbers encrypted at rest
+- A sidebar that shows each role only its own pages, and one-click demo logins for every role
+
+## Tech Stack
+Frontend: React 19 with TypeScript, Vite 7, Tailwind CSS 4, and Framer Motion. Backend: Node.js with Express, talking to PostgreSQL directly through the pg driver with no ORM, plus JWT and bcrypt for sign-in, helmet and rate limiting, PDFKit for payslips, and Nodemailer for email. Bank accounts use AES-256-GCM. It has 84 backend tests (node:test with supertest against a real database, including concurrent-request cases) and 10 frontend tests (Vitest), runs in GitHub Actions with a Postgres service, and ships Dockerfiles for both halves.
+
+## How It Works
+Finance picks an employee and a month. The server loads that employee's own record, so salary, name, and bank account come from the database rather than the request, takes overtime from the month's approved attendance unless it is given explicitly, then works out PPh 21 and BPJS and saves a draft. A unique index allows one slip per employee per month, even if two requests arrive at once. Finance submits it, and an approver or admin is notified and approves it; if the company turned the rule on, the creator cannot approve their own slip. An approver then records the bank transfer made outside the system, with a reference, and marks it paid, which emails the PDF to the employee. Each status change is conditional on the slip still being in the state that was checked, so two simultaneous clicks send one email, not two. The employee answers whether the money arrived, and a reported problem goes back to staff with the employee's reason until it is resolved. Every step is written to the audit log.`,
+    longdesc_id: `## Ringkasan
+Platform payroll digital untuk tim HR dan keuangan perusahaan kecil-menengah di Indonesia. Slip tiap karyawan dihitung, melewati persetujuan dua orang, diterbitkan sebagai PDF lewat email, lalu karyawan diminta mengonfirmasi bahwa uangnya sudah diterima. Sengaja bukan sistem pembayaran: gaji tetap ditransfer lewat rekening bank perusahaan, dan petugas hanya mencatat nomor referensi transfernya setelahnya. Ini prototipe yang sudah berjalan dengan backend sungguhan dan 84 tes, belum di-deploy; halaman penjadwalan payroll baru berupa pengaturan, belum ada yang berjalan otomatis.
+
+## Masalah yang Diselesaikan
+Payroll di spreadsheet berarti PPh dan BPJS dihitung manual tiap bulan, dengan satu sel yang salah cukup untuk mengubah gaji bersih seseorang, dan orang yang sama bisa menyiapkan, menyetujui, dan membayar slip tanpa ada yang melihat. Tidak ada catatan siapa menyetujui apa, karyawan tidak punya cara menyatakan bahwa uangnya tidak pernah masuk, dan data rekening tersimpan di dokumen polos. Satu sistem membuat perhitungan bisa diulang, memisahkan penyiapan dari persetujuan, dan menyimpan baik persetujuan maupun konfirmasi pembayaran.
+
+## Fitur Utama
+- Empat peran: admin, keuangan yang menyiapkan slip, penyetuju yang menyetujui dan menandai dibayar, dan karyawan yang hanya melihat datanya sendiri; aturan opsional mencegah pembuat slip menyetujui slipnya sendiri
+- Data karyawan dengan status pajak (PTKP) dan rekening bank, serta komponen gaji tetap atau persentase, sebagai tunjangan maupun potongan
+- Karyawan mengajukan absensi dan lembur bulanan sendiri dengan memilih status tiap hari; penyetuju atau admin menyetujuinya, dan baru setelah itu masuk ke payroll, tempat ia mengisi lembur pada slip berikutnya
+- PPh 21, BPJS Kesehatan, JHT dan JP, serta THR dihitung di server dari tarif yang berlaku; PPh 21 masih estimasi sampai tabel TER resmi ditambahkan
+- Alur persetujuan Draft, Pending, Approved, lalu Paid, di mana Paid bersifat final; menandai slip dibayar mencatat nomor referensi transfer untuk slip itu
+- Konfirmasi pembayaran: karyawan menyatakan gaji sudah diterima atau melaporkan belum, dan petugas menanggapi laporan itu sebelum karyawan mengonfirmasi lagi
+- Log notifikasi untuk semua yang menunggu seseorang, seperti slip yang perlu disetujui, slip siap dibayar, pengajuan absensi, atau pembayaran yang dilaporkan; dikirim lewat email bila server email diatur dan dicatat jujur sebagai dilewati bila belum; karyawan hanya melihat email yang ditujukan kepadanya
+- Slip PDF dibuat di server dan dikirim lewat email saat slip ditandai dibayar
+- Log audit atas setiap aksi, dilindungi di tingkat database dari pengubahan dan penghapusan, serta nomor rekening bank dienkripsi saat disimpan
+- Sidebar yang hanya menampilkan halaman milik masing-masing peran, dan login demo satu klik untuk setiap peran
+
+## Tech Stack
+Frontend: React 19 dengan TypeScript, Vite 7, Tailwind CSS 4, dan Framer Motion. Backend: Node.js dengan Express, terhubung langsung ke PostgreSQL lewat driver pg tanpa ORM, ditambah JWT dan bcrypt untuk login, helmet dan pembatasan laju permintaan, PDFKit untuk slip, dan Nodemailer untuk email. Rekening bank memakai AES-256-GCM. Ada 84 tes backend (node:test dengan supertest terhadap database sungguhan, termasuk kasus request bersamaan) dan 10 tes frontend (Vitest), dijalankan di GitHub Actions dengan layanan Postgres, serta Dockerfile untuk kedua sisi.
+
+## Alur Kerja
+Keuangan memilih karyawan dan bulan. Server memuat data karyawan itu sendiri, sehingga gaji, nama, dan rekening berasal dari database, bukan dari request, mengambil lembur dari absensi bulan itu yang sudah disetujui kecuali diisi eksplisit, lalu menghitung PPh 21 dan BPJS dan menyimpannya sebagai draf. Satu indeks unik hanya mengizinkan satu slip per karyawan per bulan, bahkan bila dua request tiba bersamaan. Keuangan mengajukannya, penyetuju atau admin diberi tahu lalu menyetujuinya; bila perusahaan mengaktifkan aturannya, pembuat tidak bisa menyetujui slipnya sendiri. Penyetuju kemudian mencatat transfer bank yang dilakukan di luar sistem beserta referensinya dan menandai slip dibayar, yang mengirim PDF ke karyawan. Tiap perubahan status bersyarat pada slip yang masih berada di status yang tadi diperiksa, sehingga dua klik bersamaan hanya mengirim satu email, bukan dua. Karyawan menjawab apakah uangnya sudah masuk, dan laporan masalah kembali ke petugas beserta alasannya sampai terselesaikan. Setiap langkah tercatat di log audit.`,
+    image: "/images/veloxpay.jpg",
+    link: "https://drive.google.com/file/d/1OOKLfGVtctYU6zIFJ1Wdc3UHhimQqt80/view?usp=sharing",
+    tags: ["Node.js", "React", "PostgreSQL"], category: "Web App"
   }
 ];
